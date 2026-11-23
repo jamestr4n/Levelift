@@ -1,5 +1,8 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Cinzel, Geist } from "next/font/google";
+import { BRAND } from "@/components/brand";
+import { AppShell } from "@/components/ui/AppShell";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,14 +10,19 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Levelift",
-  description: "Turn real workouts into a growing kingdom.",
+  title: BRAND.name,
+  description: BRAND.tagline,
+};
+
+export const viewport: Viewport = {
+  themeColor: "#07080b",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -24,10 +32,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${cinzel.variable} antialiased`}>
+        <ToastProvider>
+          <AppShell>{children}</AppShell>
+        </ToastProvider>
       </body>
     </html>
   );
