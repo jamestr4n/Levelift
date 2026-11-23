@@ -247,7 +247,25 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "is_username_available":
+            "get_friend_requests":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "created_at": string,"direction": string,"display_name": string,"id": string,"level": number,"user_id": string,"username": string
+            }[]
+                           },
+"get_friends":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "display_name": string,"id": string,"kingdom_score": number,"level": number,"username": string
+            }[]
+                           },
+"get_weekly_leaderboard":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "display_name": string,"is_current_user": boolean,"rank": number,"user_id": string,"weekly_kingdom_score": number,"weekly_xp": number
+            }[]
+                           },
+"is_friend":
+{ Args: { "p_other": string }; Returns: boolean
+                           },
+"is_username_available":
 { Args: { "name": string }; Returns: boolean
                            },
 "log_workout":
@@ -255,6 +273,15 @@ isOneToOne: false
                            },
 "purchase_building":
 { Args: { "p_type": string,"p_x": number,"p_y": number }; Returns: Json
+                           },
+"remove_friend":
+{ Args: { "p_user_id": string }; Returns: Json
+                           },
+"respond_to_friend_request":
+{ Args: { "p_accept": boolean,"p_friendship_id": string }; Returns: Json
+                           },
+"send_friend_request":
+{ Args: { "p_username": string }; Returns: Json
                            },
 "upgrade_building":
 { Args: { "p_building_id": string }; Returns: Json
