@@ -33,4 +33,8 @@ export const {
   upgradeBuilding,
   getFriends,
   getWeeklyLeaderboard,
+  sendFriendRequest,
+  getFriendRequests,
+  respondToFriendRequest,
+  removeFriend,
 } = service;

@@ -6,6 +6,7 @@ import {
   type BuildingType,
   type CharacterState,
   type FriendProfile,
+  type FriendRequest,
   type GameService,
   type KingdomState,
   type OwnedBuilding,
@@ -94,6 +95,34 @@ const workouts: Workout[] = [
 ];
 
 const resultsByRequestId = new Map<string, WorkoutRewardResult>();
+
+// --- Friend requests (added by backend in week 4; change freely) ----------
+// Other players you can find by username but aren't friends with yet.
+const strangers = [
+  { id: "mock-stranger-1", username: "lift_lena", displayName: "Lena", level: 6, kingdomScore: 52 },
+  { id: "mock-stranger-2", username: "row_raj", displayName: "Raj", level: 3, kingdomScore: 24 },
+];
+
+// One incoming request so the UI has something to accept.
+const friendRequests: FriendRequest[] = [
+  {
+    id: "req-1",
+    direction: "incoming",
+    user: { id: "mock-stranger-2", username: "row_raj", displayName: "Raj", level: 3 },
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+function becomeFriends(userId: string) {
+  const stranger = strangers.find((s) => s.id === userId);
+  if (stranger && !friends.some((f) => f.id === userId)) {
+    friends.push({ ...stranger });
+    weeklyStats[userId] ??= { weeklyKingdomScore: 0, weeklyXp: 0 };
+    friendKingdoms[userId] ??= [
+      { id: `${userId}-th`, type: "town_hall", level: 1, position: { x: 2, y: 2 } },
+    ];
+  }
+}
 
 function seedWorkout(
   id: string,
@@ -304,5 +333,65 @@ export const mockService: GameService = {
       .map((p) => ({ ...p, ...weeklyStats[p.userId], isCurrentUser: p.userId === player.id }))
       .sort((a, b) => b.weeklyKingdomScore - a.weeklyKingdomScore || b.weeklyXp - a.weeklyXp)
       .map((entry, i) => ({ rank: i + 1, ...entry }));
+  },
+
+  // --- Friend requests (return results instead of throwing) ---------------
+
+  async sendFriendRequest(username) {
+    await delay();
+    const name = username.trim().toLowerCase();
+    if (name === player.username) {
+      return { ok: false, code: "INVALID_INPUT", message: "You can't add yourself as a friend." };
+    }
+    if (friends.some((f) => f.username === name)) {
+      return { ok: true, data: { status: "accepted" } };
+    }
+    const stranger = strangers.find((s) => s.username === name);
+    if (!stranger) {
+      return { ok: false, code: "NOT_FOUND", message: "No player has that username." };
+    }
+
+    const existing = friendRequests.find((r) => r.user.id === stranger.id);
+    if (existing?.direction === "incoming") {
+      friendRequests.splice(friendRequests.indexOf(existing), 1);
+      becomeFriends(stranger.id);
+      return { ok: true, data: { status: "accepted" } };
+    }
+    if (!existing) {
+      const { kingdomScore: _score, ...user } = stranger;
+      void _score;
+      friendRequests.unshift({
+        id: crypto.randomUUID(),
+        direction: "outgoing",
+        user,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    return { ok: true, data: { status: "pending" } };
+  },
+
+  async getFriendRequests() {
+    await delay();
+    return copy(friendRequests);
+  },
+
+  async respondToFriendRequest(requestId, accept) {
+    await delay();
+    const request = friendRequests.find((r) => r.id === requestId && r.direction === "incoming");
+    if (!request) {
+      return { ok: false, code: "NOT_FOUND", message: "That friend request no longer exists." };
+    }
+    friendRequests.splice(friendRequests.indexOf(request), 1);
+    if (accept) becomeFriends(request.user.id);
+    return { ok: true, data: { status: accept ? "accepted" : "declined" } };
+  },
+
+  async removeFriend(userId) {
+    await delay();
+    const i = friends.findIndex((f) => f.id === userId);
+    if (i >= 0) friends.splice(i, 1);
+    const r = friendRequests.findIndex((req) => req.user.id === userId);
+    if (r >= 0) friendRequests.splice(r, 1);
+    return { ok: true, data: null };
   },
 };

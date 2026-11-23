@@ -139,6 +139,22 @@ export interface FriendProfile {
   kingdomScore: number;
 }
 
+/** A player you're not (yet) friends with: no Kingdom Score until they accept. */
+export interface PlayerSummary {
+  id: string;
+  username: string;
+  displayName: string;
+  level: number;
+}
+
+export interface FriendRequest {
+  id: string;
+  /** incoming = they asked you (you can accept/decline); outgoing = you asked them. */
+  direction: "incoming" | "outgoing";
+  user: PlayerSummary;
+  createdAt: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   userId: string;
@@ -204,6 +220,15 @@ export type AuthResult =
     }
   | { ok: false; code: GameErrorCode; message: string };
 
+/**
+ * Result of an action that can fail in ways the player should see.
+ * Returned instead of thrown, because Next.js hides thrown server-action
+ * errors in production. `message` is safe to show to the player.
+ */
+export type ActionResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; code: GameErrorCode; message: string };
+
 // ---------- Service interface ----------
 
 /**
@@ -225,4 +250,19 @@ export interface GameService {
   upgradeBuilding(buildingId: string): Promise<UpgradeResult>;
   getFriends(): Promise<FriendProfile[]>;
   getWeeklyLeaderboard(): Promise<LeaderboardEntry[]>;
+
+  /**
+   * Ask a player to be friends. If they had already asked you, this accepts
+   * it (status "accepted"). Asking again while pending is harmless.
+   */
+  sendFriendRequest(username: string): Promise<ActionResult<{ status: "pending" | "accepted" }>>;
+  /** Pending requests to and from you, newest first. */
+  getFriendRequests(): Promise<FriendRequest[]>;
+  /** Accept or decline an incoming request (by FriendRequest.id). */
+  respondToFriendRequest(
+    requestId: string,
+    accept: boolean,
+  ): Promise<ActionResult<{ status: "accepted" | "declined" }>>;
+  /** Unfriend someone, or cancel/decline a pending request with them (by user id). */
+  removeFriend(userId: string): Promise<ActionResult<null>>;
 }

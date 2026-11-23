@@ -1,9 +1,13 @@
 // BACKEND-OWNED. Converts database rows (snake_case) into contract types (camelCase).
 import type { Tables } from "@/types/database";
+import type { Database } from "@/types/database";
 import type {
   BuildingType,
   CharacterState,
+  FriendProfile,
+  FriendRequest,
   KingdomState,
+  LeaderboardEntry,
   OutfitId,
   OwnedBuilding,
   PlayerProfile,
@@ -79,5 +83,43 @@ export function toKingdomState(
     buildings: buildings.map(toOwnedBuilding),
     kingdomScore: kingdom.kingdom_score,
     canEdit: kingdom.user_id === viewerId,
+  };
+}
+
+type Rpc<Name extends keyof Database["public"]["Functions"]> =
+  Database["public"]["Functions"][Name]["Returns"] extends Array<infer Row> ? Row : never;
+
+export function toFriendProfile(row: Rpc<"get_friends">): FriendProfile {
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    level: row.level,
+    kingdomScore: row.kingdom_score,
+  };
+}
+
+export function toFriendRequest(row: Rpc<"get_friend_requests">): FriendRequest {
+  return {
+    id: row.id,
+    direction: row.direction as FriendRequest["direction"],
+    user: {
+      id: row.user_id,
+      username: row.username,
+      displayName: row.display_name,
+      level: row.level,
+    },
+    createdAt: row.created_at,
+  };
+}
+
+export function toLeaderboardEntry(row: Rpc<"get_weekly_leaderboard">): LeaderboardEntry {
+  return {
+    rank: row.rank,
+    userId: row.user_id,
+    displayName: row.display_name,
+    weeklyKingdomScore: row.weekly_kingdom_score,
+    weeklyXp: row.weekly_xp,
+    isCurrentUser: row.is_current_user,
   };
 }
