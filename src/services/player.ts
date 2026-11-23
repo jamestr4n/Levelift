@@ -1,11 +1,23 @@
-// BACKEND-OWNED. Real implementation backed by Supabase.
-import type { CharacterState, PlayerProfile } from "@/types/game";
-import { notImplemented } from "./notImplemented";
+"use server";
+// BACKEND-OWNED. Real implementation backed by Supabase (server actions).
+import { GameError, type CharacterState, type PlayerProfile } from "@/types/game";
+import { toCharacterState } from "./mappers";
+import { loadPlayer, requireUser } from "./session";
 
 export async function getCurrentPlayer(): Promise<PlayerProfile> {
-  return notImplemented("getCurrentPlayer");
+  const { supabase, userId } = await requireUser();
+  return loadPlayer(supabase, userId);
 }
 
 export async function getCharacter(): Promise<CharacterState> {
-  return notImplemented("getCharacter");
+  const { supabase, userId } = await requireUser();
+
+  const { data, error } = await supabase
+    .from("characters")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+
+  if (error) throw new GameError("NOT_FOUND", "Character not found.");
+  return toCharacterState(data);
 }

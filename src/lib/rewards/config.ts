@@ -1,5 +1,8 @@
 // BACKEND-OWNED. Placeholder reward rules; tune these.
-// The database function that awards rewards must use the same numbers.
+// TODO(team): agree on the real numbers.
+// The database function log_workout() (supabase/migrations/*_workout_rewards.sql)
+// is the source of truth and must use the same numbers; tests/db/workouts.test.ts
+// fails if they drift apart.
 import type { WorkoutType } from "@/types/game";
 
 export const REWARD_RATES: Record<WorkoutType, { goldPerMin: number; materialsPerMin: number; xpPerMin: number }> = {
