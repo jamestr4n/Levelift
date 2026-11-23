@@ -152,11 +152,13 @@ Levelift/
 │   │   ├── index.ts                                              picks real or mock (NEXT_PUBLIC_USE_MOCKS)
 │   │   ├── auth.ts  player.ts  workouts.ts  kingdom.ts  friends.ts   (server actions)
 │   │   ├── mappers.ts                                            DB rows → contract types
+│   │   ├── session.ts                                            server-only helpers (requireUser, loadPlayer)
 │   │   └── mock/                                       FRONTEND  dev-only mock data
 │   └── lib/
 │       ├── supabase/                                   BACKEND   client.ts, server.ts, middleware.ts (session refresh)
 │       ├── auth/                                       BACKEND   sign-up validation, auth error messages
-│       └── rewards/                                    BACKEND   reward rules and calculation
+│       ├── workouts/                                   BACKEND   workout input rules (safe to use in forms)
+│       └── rewards/                                    BACKEND   TS mirror of reward + level rules (preview/tests; DB decides)
 ├── supabase/
 │   ├── config.toml                                     BACKEND   local Supabase settings
 │   └── migrations/                                     BACKEND   schema, RLS, SQL functions
