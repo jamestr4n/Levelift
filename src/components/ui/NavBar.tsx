@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BRAND } from "@/components/brand";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { FriendsIcon, HeroIcon, KingdomIcon, TrophyIcon, WorkoutIcon } from "./icons";
 
 const NAV_ITEMS = [
@@ -51,6 +52,7 @@ export function NavBar() {
             );
           })}
         </ul>
+        <SignOutButton className="mt-auto px-3 py-2.5 text-left" />
       </nav>
 
       {/* Mobile: bottom tab bar */}

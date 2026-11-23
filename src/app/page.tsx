@@ -1,6 +1,7 @@
 // FRONTEND-OWNED. Character hub (home screen).
 import Link from "next/link";
 import { getCharacter, getCurrentPlayer, getWorkoutHistory } from "@/services";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { HeroStage } from "@/components/character/HeroStage";
 import { OUTFITS } from "@/components/character/outfits";
 import { TodayActivity } from "@/components/character/TodayActivity";
@@ -33,9 +34,11 @@ export default async function HeroPage() {
             @{player.username} · {OUTFITS[character.outfit].label}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ResourceBadge resource="gold" amount={player.gold} />
           <ResourceBadge resource="materials" amount={player.materials} />
+          {/* The mobile tab bar has no room for it. */}
+          <SignOutButton className="px-2 py-1 md:hidden" />
         </div>
       </header>
 
