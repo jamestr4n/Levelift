@@ -99,7 +99,9 @@ Keep the stack small. Do not introduce other major frameworks, state libraries, 
 
 ## 5. Team responsibilities
 
-### Developer A — Frontend / Game Visuals (me)
+> Each Claude Code session must know which developer it is working for. If the developer has not said so, ask before editing files.
+
+### Developer A — Frontend / Game Visuals
 
 **Owns:**
 - Main character dashboard matching the supplied reference's composition and visual language.
@@ -110,7 +112,7 @@ Keep the stack small. Do not introduce other major frameworks, state libraries, 
 
 **Does not own:** database migrations, permission rules, or authoritative reward calculations.
 
-### Developer B — Backend / Systems (friend)
+### Developer B — Backend / Systems
 
 **Owns:**
 - Supabase authentication, schema, migrations, row-level security, and profile creation.
@@ -128,14 +130,50 @@ Keep the stack small. Do not introduce other major frameworks, state libraries, 
 - Maintain this document, acceptance criteria, and a short task board.
 - Coordinate any edits to shared types, app routing, package dependencies, and Supabase migrations.
 
-## 6. Shared integration contracts
+## 6. Repository structure and file ownership
+
+One Next.js app. The split is by **file ownership**, not by separate apps. A Claude Code session must only edit files its developer owns. To change anything else, describe the needed change and let the owner make it.
+
+```
+Levelift/
+├── CLAUDE.md, README.md, .env.example, .gitignore      SHARED
+├── package.json, next.config.ts, tsconfig.json, …      SHARED (agree before adding dependencies)
+├── public/models/                                      FRONTEND  3D assets (.glb)
+├── src/
+│   ├── app/                                            FRONTEND  pages and routes
+│   │   ├── page.tsx                                              character hub
+│   │   ├── login/  workouts/  kingdom/  friends/  leaderboard/
+│   ├── components/                                     FRONTEND
+│   │   ├── ui/  character/  kingdom/
+│   ├── types/game.ts                                   SHARED    the API contract
+│   ├── services/                                       BACKEND   real service functions
+│   │   ├── index.ts                                              picks real or mock (NEXT_PUBLIC_USE_MOCKS)
+│   │   ├── player.ts  workouts.ts  kingdom.ts  friends.ts
+│   │   └── mock/                                       FRONTEND  dev-only mock data
+│   └── lib/
+│       ├── supabase/                                   BACKEND   client.ts (browser), server.ts (server)
+│       └── rewards/                                    BACKEND   reward rules and calculation
+├── supabase/migrations/                                BACKEND   schema, RLS, SQL functions
+└── tests/                                              BACKEND   reward, purchase and permission tests
+```
+
+**Rules:**
+
+- UI code imports game data **only** from `@/services`. It never calls Supabase directly and never calculates rewards or prices.
+- `src/types/game.ts` is the contract. Change it only in a small, dedicated PR reviewed by the other developer. Both `src/services/*` and `src/services/mock` must satisfy `GameService`.
+- Shared files (SHARED above) are changed in small, separate PRs, never as a side effect of a feature.
+- Purchases, upgrades and reward awards run as Postgres functions in `supabase/migrations/`, called with `supabase.rpc(...)`, so they are atomic and server-authoritative.
+- Personal Claude Code settings (`.claude/settings.local.json`) and `.env.local` are git-ignored and never committed.
+
+**Commands:** `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+
+## 7. Shared integration contracts
 
 The frontend must access game data through typed, stable service functions rather than embedding reward or purchasing logic into UI components.
 
-Agree on the actual function names and data types early. Suggested interface:
+The function names and types live in `src/types/game.ts` (`GameService`). Current interface:
 
 ```ts
-// Conceptual contracts; finalise the types together in the repository.
 getCurrentPlayer(): Promise<PlayerProfile>;
 getCharacter(): Promise<CharacterState>;
 logWorkout(input: WorkoutInput): Promise<WorkoutRewardResult>;
@@ -163,14 +201,14 @@ getWeeklyLeaderboard(): Promise<LeaderboardEntry[]>;
 
 The backend owner can simplify these tables as appropriate; document the final schema. Weekly rankings can be derived from persistent, auditable score-change / building events rather than blindly trusting client totals.
 
-## 7. Collaboration and Git rules
+## 8. Collaboration and Git rules
 
 - **One shared GitHub repository** and one deployable Next.js app.
 - `main` should always build and pass tests. **Never commit directly to `main`**.
 - Use task-scoped branches such as `feat/character-hub`, `feat/workout-rewards`, `feat/kingdom-scene`, `feat/friends-leaderboard`. Avoid keeping two long-lived branches that drift apart.
 - Open small pull requests. Include a short summary, test instructions, screenshots for UI changes, and any migration / environment changes.
 - Review each other's work before merging. Rebase / pull from `main` frequently.
-- Resolve file ownership before parallel work. Avoid both Claude Code sessions editing the same files simultaneously.
+- Resolve file ownership before parallel work (see section 6). Avoid both Claude Code sessions editing the same files simultaneously.
 - Store secrets in local `.env.local` and deployment environment settings. Commit only a safe `.env.example` with variable names, never credentials or service-role keys.
 - Check in migrations, reusable assets (with valid licences), tests, and documentation.
 
@@ -186,7 +224,7 @@ The backend owner can simplify these tables as appropriate; document the final s
 8. Do not fabricate workout data, synced health integrations, user accounts, or multiplayer behaviour in production. Use clearly marked mock data only in development.
 9. Ask for alignment before adding a large new dependency, changing product scope, or making a breaking schema / API change.
 
-## 8. Delivery plan (4–6 week target, adjust to actual progress)
+## 9. Delivery plan (4–6 week target, adjust to actual progress)
 
 | Period | Developer A: Frontend / 3D | Developer B: Backend / Systems | Joint milestone |
 | --- | --- | --- | --- |
@@ -209,7 +247,7 @@ The backend owner can simplify these tables as appropriate; document the final s
 
 Once this works end-to-end, extend the visuals, buildings, and social features.
 
-## 9. V1 definition of done
+## 10. V1 definition of done
 
 A release is ready when two real users can independently:
 
@@ -224,11 +262,11 @@ A release is ready when two real users can independently:
 
 If a proposed feature does not help meet this checklist, treat it as a later version unless both developers explicitly reprioritise it.
 
-## 10. Working session checklist
+## 11. Working session checklist
 
 At the start of each Claude Code session:
 
-1. Read `CLAUDE.md`, relevant source files, and the latest merged work.
+1. Read `CLAUDE.md`, relevant source files, and the latest merged work. Confirm which developer you are working for and only edit files that developer owns (section 6).
 2. State your current feature, files likely to change, and any dependency on the other developer.
 3. Implement only the agreed slice.
 4. Test it and summarise changed files, outcomes, and blockers.
