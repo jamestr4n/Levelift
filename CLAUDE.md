@@ -137,11 +137,14 @@ One Next.js app. The split is by **file ownership**, not by separate apps. A Cla
 ```
 Levelift/
 ├── CLAUDE.md, README.md, .env.example, .gitignore      SHARED
+├── .github/workflows/ci.yml                            SHARED    CI: must pass before merging
+├── docs/DEPLOY.md                                      SHARED    how to deploy (Supabase + Vercel)
 ├── package.json, next.config.ts, tsconfig.json, …      SHARED (agree before adding dependencies)
 ├── public/models/                                      FRONTEND  3D assets (.glb)
 ├── src/
 │   ├── middleware.ts                                   BACKEND   session refresh + redirect to /login (off in mock mode)
 │   ├── app/                                            FRONTEND  pages and routes
+│   │   ├── auth/confirm/route.ts                       BACKEND   email confirmation link handler
 │   │   ├── page.tsx                                              character hub
 │   │   ├── login/  workouts/  kingdom/  friends/  leaderboard/
 │   ├── components/                                     FRONTEND
@@ -160,7 +163,8 @@ Levelift/
 │       ├── workouts/                                   BACKEND   workout input rules (safe to use in forms)
 │       └── rewards/                                    BACKEND   TS mirror of reward + level rules (preview/tests; DB decides)
 ├── supabase/
-│   ├── config.toml                                     BACKEND   local Supabase settings
+│   ├── config.toml                                     BACKEND   local Supabase settings (NOT used by the hosted project)
+│   ├── templates/                                      BACKEND   auth email templates
 │   └── migrations/                                     BACKEND   schema, RLS, SQL functions
 └── tests/                                              BACKEND   reward, purchase and permission tests
     └── db/                                                       database / RLS tests (need local Supabase)
@@ -174,11 +178,12 @@ Levelift/
 - Purchases, upgrades and reward awards run as Postgres functions in `supabase/migrations/`, called with `supabase.rpc(...)`, so they are atomic and server-authoritative.
 - Personal Claude Code settings (`.claude/settings.local.json`) and `.env.local` are git-ignored and never committed.
 
+- Every new table or database function must be added to `tests/db/permissions.test.ts`, which states who may read or call it. The test fails until you do.
 - Never edit an existing migration once it is merged. Change the schema with a new migration file (`npx supabase migration new <name>`), then run `npm run db:reset` and `npm run db:types`.
 
-**Commands:** `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
+**Commands:** `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. GitHub Actions (`.github/workflows/ci.yml`) runs all of these plus the database tests on every pull request; keep it green.
 
-**Local database (backend):** needs Docker. `npm run db:start` / `db:stop`, `npm run db:reset` (rebuild from migrations), `npm run db:types` (regenerate `src/types/database.ts`), `npm run test:db` (database and RLS tests). Put the values from `npx supabase status -o env` into `.env.local` (`API_URL`, `ANON_KEY`, and `SERVICE_ROLE_KEY` as `SUPABASE_SERVICE_ROLE_KEY` for test setup only) and set `NEXT_PUBLIC_USE_MOCKS=false`.
+**Local database (backend):** needs Docker. `npm run db:start` / `db:stop`, `npm run db:reset` (rebuild from migrations), `npm run db:types` (regenerate `src/types/database.ts`), `npm run test:db` (database and RLS tests), `npm run db:advisors` (Supabase security and performance checks), `npm run db:push` (apply migrations to the hosted project; see `docs/DEPLOY.md`). Put the values from `npx supabase status -o env` into `.env.local` (`API_URL`, `ANON_KEY`, and `SERVICE_ROLE_KEY` as `SUPABASE_SERVICE_ROLE_KEY` for test setup only) and set `NEXT_PUBLIC_USE_MOCKS=false`.
 
 **Frontend without Docker:** keep `NEXT_PUBLIC_USE_MOCKS=true`. The app then uses `src/services/mock` and never contacts Supabase; `npm test` skips the database tests.
 
