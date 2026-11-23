@@ -197,14 +197,14 @@ isOneToOne: true
                   ]
                 },"workouts": {
                   Row: {
-                    "client_request_id": string,"created_at": string,"distance_km": number | null,"duration_minutes": number,"gold_awarded": number,"id": string,"materials_awarded": number,"sets": number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded": number
+                    "client_request_id": string,"created_at": string,"distance_km": number | null,"duration_minutes": number,"gold_awarded": number,"id": string,"materials_awarded": number,"reward_capped": boolean,"sets": number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_request_id": string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes": number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"sets"?: number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded"?: number
+                    "client_request_id": string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes": number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded"?: number
                   }
                   Update: {
-                    "client_request_id"?: string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes"?: number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"sets"?: number | null,"started_at"?: string,"type"?: string,"user_id"?: string,"xp_awarded"?: number
+                    "client_request_id"?: string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes"?: number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"started_at"?: string,"type"?: string,"user_id"?: string,"xp_awarded"?: number
                   }
                   Relationships: [
                     {
@@ -223,6 +223,9 @@ isOneToOne: false
           Functions: {
             "is_username_available":
 { Args: { "name": string }; Returns: boolean
+                           },
+"log_workout":
+{ Args: { "p_client_request_id": string,"p_distance_km"?: number,"p_duration_minutes": number,"p_sets"?: number,"p_started_at": string,"p_type": string }; Returns: Json
                            }
           }
           Enums: {
