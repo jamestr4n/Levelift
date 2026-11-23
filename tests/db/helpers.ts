@@ -41,3 +41,26 @@ export async function newPlayer(username = randomUsername()) {
   if (!data.user || !data.session) throw new Error("Sign-up did not return a session");
   return { client, user: data.user, username, email };
 }
+
+/**
+ * Admin client (bypasses RLS) for TEST SETUP ONLY, e.g. giving a player Gold
+ * beyond the daily reward cap. Uses the local service-role key from .env.local.
+ */
+export function adminClient(): Client {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Set SUPABASE_SERVICE_ROLE_KEY in .env.local (SERVICE_ROLE_KEY from `npx supabase status -o env`).",
+    );
+  }
+  return createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/** Test setup: set a player's wallet directly. */
+export async function setFunds(userId: string, gold: number, materials: number) {
+  const { error } = await adminClient().from("wallets").update({ gold, materials }).eq("user_id", userId);
+  if (error) throw error;
+}

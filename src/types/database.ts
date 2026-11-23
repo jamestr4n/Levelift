@@ -83,6 +83,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"kingdom_score_events": {
+                  Row: {
+                    "created_at": string,"delta": number,"id": number,"owned_building_id": string | null,"reason": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"delta": number,"id"?: never,"owned_building_id"?: string | null,"reason": string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"delta"?: number,"id"?: never,"owned_building_id"?: string | null,"reason"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "kingdom_score_events_owned_building_id_fkey"
+      columns: ["owned_building_id"]
+isOneToOne: false
+      referencedRelation: "owned_buildings"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "kingdom_score_events_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"kingdoms": {
                   Row: {
                     "created_at": string,"grid_height": number,"grid_width": number,"kingdom_score": number,"user_id": string
@@ -226,6 +252,12 @@ isOneToOne: false
                            },
 "log_workout":
 { Args: { "p_client_request_id": string,"p_distance_km"?: number,"p_duration_minutes": number,"p_sets"?: number,"p_started_at": string,"p_type": string }; Returns: Json
+                           },
+"purchase_building":
+{ Args: { "p_type": string,"p_x": number,"p_y": number }; Returns: Json
+                           },
+"upgrade_building":
+{ Args: { "p_building_id": string }; Returns: Json
                            }
           }
           Enums: {

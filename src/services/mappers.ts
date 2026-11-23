@@ -1,6 +1,15 @@
 // BACKEND-OWNED. Converts database rows (snake_case) into contract types (camelCase).
 import type { Tables } from "@/types/database";
-import type { CharacterState, OutfitId, PlayerProfile, Workout, WorkoutType } from "@/types/game";
+import type {
+  BuildingType,
+  CharacterState,
+  KingdomState,
+  OutfitId,
+  OwnedBuilding,
+  PlayerProfile,
+  Workout,
+  WorkoutType,
+} from "@/types/game";
 import { xpToNextLevel } from "@/lib/rewards/levels";
 
 export function toPlayerProfile(
@@ -44,5 +53,31 @@ export function toWorkout(row: Tables<"workouts">): Workout {
       xp: row.xp_awarded,
     },
     createdAt: row.created_at,
+  };
+}
+
+export function toOwnedBuilding(
+  row: Pick<Tables<"owned_buildings">, "id" | "type" | "level" | "x" | "y">,
+): OwnedBuilding {
+  return {
+    id: row.id,
+    type: row.type as BuildingType,
+    level: row.level,
+    position: { x: row.x, y: row.y },
+  };
+}
+
+export function toKingdomState(
+  kingdom: Tables<"kingdoms">,
+  buildings: Array<Pick<Tables<"owned_buildings">, "id" | "type" | "level" | "x" | "y">>,
+  viewerId: string,
+): KingdomState {
+  return {
+    ownerId: kingdom.user_id,
+    gridWidth: kingdom.grid_width,
+    gridHeight: kingdom.grid_height,
+    buildings: buildings.map(toOwnedBuilding),
+    kingdomScore: kingdom.kingdom_score,
+    canEdit: kingdom.user_id === viewerId,
   };
 }

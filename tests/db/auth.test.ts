@@ -58,7 +58,7 @@ describe.skipIf(!dbTestsEnabled)("auth against local Supabase", () => {
       xpToNextLevel: 100,
       gold: 0,
       materials: 0,
-      kingdomScore: 10,
+      kingdomScore: 15,
     });
   });
 
