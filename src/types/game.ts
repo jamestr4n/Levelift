@@ -14,8 +14,9 @@ export interface PlayerProfile {
   username: string;
   displayName: string;
   level: number;
+  /** XP earned towards the next level (resets to 0 on level-up). */
   xp: number;
-  /** XP needed to reach the next level. */
+  /** XP needed to go from the current level to the next one. */
   xpToNextLevel: number;
   gold: number;
   materials: number;
@@ -159,6 +160,10 @@ export type GameErrorCode =
   | "PLOT_OCCUPIED"
   | "MAX_LEVEL"
   | "DUPLICATE_REQUEST"
+  | "USERNAME_TAKEN"
+  | "EMAIL_TAKEN"
+  | "INVALID_CREDENTIALS"
+  | "RATE_LIMITED"
   | "NOT_IMPLEMENTED"
   | "UNKNOWN";
 
@@ -172,6 +177,33 @@ export class GameError extends Error {
   }
 }
 
+// ---------- Auth ----------
+
+export interface SignUpInput {
+  email: string;
+  password: string;
+  /** 3-20 characters: letters, numbers or underscores. Stored lowercase. */
+  username: string;
+}
+
+export interface SignInInput {
+  email: string;
+  password: string;
+}
+
+/**
+ * Auth functions return errors as values instead of throwing, because Next.js
+ * hides thrown error messages from server actions in production. `message` is
+ * safe to show to the player.
+ */
+export type AuthResult =
+  | {
+      ok: true;
+      /** True when the player must click an email link before signing in (hosted only). */
+      needsEmailConfirmation: boolean;
+    }
+  | { ok: false; code: GameErrorCode; message: string };
+
 // ---------- Service interface ----------
 
 /**
@@ -179,6 +211,11 @@ export class GameError extends Error {
  * and the mock (src/services/mock) must both satisfy this interface.
  */
 export interface GameService {
+  signUp(input: SignUpInput): Promise<AuthResult>;
+  signIn(input: SignInInput): Promise<AuthResult>;
+  signOut(): Promise<void>;
+  isUsernameAvailable(username: string): Promise<boolean>;
+
   getCurrentPlayer(): Promise<PlayerProfile>;
   getCharacter(): Promise<CharacterState>;
   logWorkout(input: WorkoutInput): Promise<WorkoutRewardResult>;

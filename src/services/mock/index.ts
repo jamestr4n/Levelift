@@ -14,6 +14,17 @@ const mockPlayer: PlayerProfile = {
 };
 
 export const mockService: GameService = {
+  // Auth always succeeds in mock mode.
+  async signUp() {
+    return { ok: true, needsEmailConfirmation: false };
+  },
+  async signIn() {
+    return { ok: true, needsEmailConfirmation: false };
+  },
+  async signOut() {},
+  async isUsernameAvailable(username) {
+    return /^[a-z0-9_]{3,20}$/.test(username.trim().toLowerCase());
+  },
   async getCurrentPlayer() {
     return mockPlayer;
   },

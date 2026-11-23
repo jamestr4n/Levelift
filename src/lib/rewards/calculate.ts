@@ -1,4 +1,5 @@
-// BACKEND-OWNED. Pure reward calculation (no database access) so it can be unit tested.
+// BACKEND-OWNED. Pure reward calculation, mirroring log_workout() in the database.
+// Use it for previews ("you will earn about ...") and tests; the database decides the real award.
 import type { Rewards, WorkoutType } from "@/types/game";
 import { DAILY_LIMITS, MAX_REWARDED_MINUTES_PER_WORKOUT, REWARD_RATES } from "./config";
 
