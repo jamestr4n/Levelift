@@ -1,0 +1,65 @@
+# Runs on every pull request and on main. Both jobs must pass before merging.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Typecheck, lint, unit tests and a production build in mock mode
+  # (no database needed), the same as the frontend's local setup.
+  app:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_USE_MOCKS: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  # Applies every migration to a fresh local Supabase, then runs the
+  # database / permission tests and the Supabase security + performance checks.
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Start local Supabase (only the services the tests need)
+        run: npx supabase start -x realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
+
+      - name: Write .env.local for the tests
+        run: |
+          npx supabase status -o env > supabase.env
+          set -a; . ./supabase.env; set +a
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "NEXT_PUBLIC_USE_MOCKS=false"
+          } > .env.local
+
+      - name: Generated database types are up to date
+        run: |
+          npm run db:types
+          git diff --exit-code src/types/database.ts || (echo "::error::Run 'npm run db:types' and commit src/types/database.ts" && exit 1)
+
+      - run: npm run test:db
+      - run: npm run db:advisors

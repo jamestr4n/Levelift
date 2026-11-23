@@ -13,7 +13,9 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript > src/types/database.ts",
-    "test:db": "SUPABASE_DB_TESTS=1 vitest run tests/db"
+    "test:db": "SUPABASE_DB_TESTS=1 vitest run tests/db",
+    "db:push": "supabase db push",
+    "db:advisors": "supabase db advisors --level info --fail-on warn"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

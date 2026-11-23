@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { calculateRewards } from "@/lib/rewards/calculate";
 import { applyXp } from "@/lib/rewards/levels";
 import type { Rewards, WorkoutType } from "@/types/game";
-import { anonClient, dbTestsEnabled, newPlayer, type Client } from "./helpers";
+import { adminClient, anonClient, dbTestsEnabled, newPlayer, type Client } from "./helpers";
 
 interface LogResult {
   workout_id: string;
@@ -186,5 +186,32 @@ describe.skipIf(!dbTestsEnabled)("log_workout rejects bad input", () => {
   it("cannot be called by a signed-out visitor", async () => {
     const { error } = await log(anonClient());
     expect(error).not.toBeNull();
+  });
+});
+
+describe.skipIf(!dbTestsEnabled)("log_workout anti-spam limit", () => {
+  it("allows 20 workouts per day, then RATE_LIMITED (retries still return the original)", async () => {
+    const p = await newPlayer();
+    // Insert 19 workouts directly (test setup), then log the 20th for real.
+    const rows = Array.from({ length: 19 }, () => ({
+      user_id: p.user.id,
+      type: "walking",
+      started_at: minutesAgo(60),
+      duration_minutes: 1,
+      client_request_id: crypto.randomUUID(),
+    }));
+    const { error: setupError } = await adminClient().from("workouts").insert(rows);
+    expect(setupError).toBeNull();
+
+    const lastRequestId = crypto.randomUUID();
+    expect((await log(p.client, { minutes: 1, requestId: lastRequestId })).error).toBeNull();
+
+    const blocked = await log(p.client, { minutes: 1 });
+    expect(blocked.error?.message).toBe("RATE_LIMITED");
+    expect(blocked.error?.details).toEqual(expect.any(String));
+
+    // Retrying the 20th is still answered (not blocked, not paid again).
+    const retry = await logOk(p.client, { minutes: 1, requestId: lastRequestId });
+    expect(retry.duplicate).toBe(true);
   });
 });

@@ -16,8 +16,15 @@ import * as friends from "./friends";
 
 const realService: GameService = { ...auth, ...player, ...workouts, ...kingdom, ...friends };
 
-const service: GameService =
-  process.env.NEXT_PUBLIC_USE_MOCKS === "true" ? mockService : realService;
+const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
+
+// Safety net: never ship the fake backend to real players. VERCEL_ENV is only
+// set on the server, so this check runs during the Vercel production build.
+if (useMocks && process.env.VERCEL_ENV === "production") {
+  throw new Error("NEXT_PUBLIC_USE_MOCKS must be false in Vercel production.");
+}
+
+const service: GameService = useMocks ? mockService : realService;
 
 export const {
   signUp,
