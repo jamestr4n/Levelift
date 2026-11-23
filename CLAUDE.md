@@ -178,7 +178,7 @@ Levelift/
 
 **Commands:** `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
 
-**Local database (backend):** needs Docker. `npm run db:start` / `db:stop`, `npm run db:reset` (rebuild from migrations), `npm run db:types` (regenerate `src/types/database.ts`), `npm run test:db` (database and RLS tests). Put the values from `npx supabase status -o env` into `.env.local` and set `NEXT_PUBLIC_USE_MOCKS=false`.
+**Local database (backend):** needs Docker. `npm run db:start` / `db:stop`, `npm run db:reset` (rebuild from migrations), `npm run db:types` (regenerate `src/types/database.ts`), `npm run test:db` (database and RLS tests). Put the values from `npx supabase status -o env` into `.env.local` (`API_URL`, `ANON_KEY`, and `SERVICE_ROLE_KEY` as `SUPABASE_SERVICE_ROLE_KEY` for test setup only) and set `NEXT_PUBLIC_USE_MOCKS=false`.
 
 **Frontend without Docker:** keep `NEXT_PUBLIC_USE_MOCKS=true`. The app then uses `src/services/mock` and never contacts Supabase; `npm test` skips the database tests.
 

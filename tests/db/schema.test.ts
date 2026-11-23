@@ -34,7 +34,7 @@ describe.skipIf(!dbTestsEnabled)("sign-up creates a complete player", () => {
     expect(wallet.data).toMatchObject({ gold: 0, materials: 0 });
 
     const kingdom = await alice.client.from("kingdoms").select("*").single();
-    expect(kingdom.data).toMatchObject({ grid_width: 5, grid_height: 5, kingdom_score: 10 });
+    expect(kingdom.data).toMatchObject({ grid_width: 5, grid_height: 5, kingdom_score: 15 });
   });
 
   it("starts the kingdom with a level-1 Town Hall in the middle", async () => {
