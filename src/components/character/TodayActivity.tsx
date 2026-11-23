@@ -1,38 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
-import type { Workout, WorkoutType } from "@/types/game";
+import type { Workout } from "@/types/game";
 import { Panel } from "@/components/ui/Panel";
 import { ResourceBadge } from "@/components/ui/ResourceBadge";
-
-const TYPE_LABELS: Record<WorkoutType, string> = {
-  running: "Run",
-  walking: "Walk",
-  cycling: "Ride",
-  strength: "Strength",
-};
-
-const noopSubscribe = () => () => {};
-
-// "Today" must use the player's timezone, which only the browser knows; the
-// server snapshot is null so server and client HTML match during hydration.
-function useTodayKey() {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => new Date().toDateString(),
-    () => null,
-  );
-}
-
-function detail(w: Workout) {
-  if (w.distanceKm) return `${w.durationMinutes} min · ${w.distanceKm} km`;
-  if (w.sets) return `${w.durationMinutes} min · ${w.sets} sets`;
-  return `${w.durationMinutes} min`;
-}
+import { useHydrated } from "@/components/ui/useHydrated";
+import { WORKOUT_LABELS, workoutDetail } from "@/components/workouts/labels";
 
 export function TodayActivity({ workouts }: { workouts: Workout[] }) {
-  const todayKey = useTodayKey();
+  // "Today" must use the player's timezone, which only the browser knows.
+  const hydrated = useHydrated();
+  const todayKey = hydrated ? new Date().toDateString() : null;
   const today = todayKey
     ? workouts.filter((w) => new Date(w.startedAt).toDateString() === todayKey)
     : [];
@@ -64,8 +42,8 @@ export function TodayActivity({ workouts }: { workouts: Workout[] }) {
           <ul className="flex flex-col divide-y divide-ink-700">
             {today.map((w) => (
               <li key={w.id} className="flex items-baseline justify-between gap-3 py-2 text-sm">
-                <span className="text-parchment">{TYPE_LABELS[w.type]}</span>
-                <span className="text-muted tabular-nums">{detail(w)}</span>
+                <span className="text-parchment">{WORKOUT_LABELS[w.type]}</span>
+                <span className="text-muted tabular-nums">{workoutDetail(w)}</span>
               </li>
             ))}
           </ul>
