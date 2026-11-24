@@ -15,6 +15,8 @@ export interface StravaActivity {
   elapsed_time: number;
   /** Metres. */
   distance: number;
+  /** The athlete who owns the activity. */
+  athlete?: { id: number };
 }
 
 /**

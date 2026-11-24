@@ -66,60 +66,127 @@ export async function deleteConnection(admin: AdminClient, userId: string): Prom
   if (error) throw error;
 }
 
-/**
- * A usable access token for the player, refreshing it if needed. Returns null
- * if they aren't connected, or if Strava says they revoked access (then the
- * connection is deleted).
- */
-export async function getValidAccessToken(
+export interface StravaAccess {
+  accessToken: string;
+  /** The Strava athlete this player linked. Activities must belong to them. */
+  athleteId: number;
+}
+
+function isRejectedRefresh(e: unknown): boolean {
+  // Strava rejected the player's refresh token (revoked, or rotated by a
+  // parallel request). If it rejected our app's own credentials
+  // (misconfigured secret), that's not the player's doing.
+  return e instanceof StravaApiError && (e.status === 400 || e.status === 401) && !e.isAppError;
+}
+
+/** Stores refreshed tokens, unless another request already replaced `oldRefreshToken`. */
+async function saveRefreshedTokens(
   admin: AdminClient,
-  config: StravaConfig,
   userId: string,
-  { forceRefresh = false } = {},
-): Promise<string | null> {
-  const { data: row, error } = await admin
-    .from("strava_connections")
-    .select("access_token, refresh_token, expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!row) return null;
-
-  const expiresInS = (new Date(row.expires_at).getTime() - Date.now()) / 1000;
-  if (!forceRefresh && expiresInS > REFRESH_MARGIN_S) return row.access_token;
-
-  let tokens: StravaTokenResponse;
-  try {
-    tokens = await refreshTokens(config, row.refresh_token);
-  } catch (e) {
-    // Only a rejected refresh token means "revoked". If Strava rejected our
-    // app's own credentials (misconfigured secret), keep every connection.
-    if (!(e instanceof StravaApiError) || (e.status !== 400 && e.status !== 401) || e.isAppError) throw e;
-
-    // Strava rotates refresh tokens. If another request refreshed in the
-    // meantime, ours is stale but the stored one works.
-    const again = await admin
-      .from("strava_connections")
-      .select("access_token, refresh_token")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (again.data && again.data.refresh_token !== row.refresh_token) return again.data.access_token;
-
-    // Otherwise the player revoked access on Strava.
-    await deleteConnection(admin, userId);
-    return null;
-  }
-
-  const { error: updateError } = await admin
+  oldRefreshToken: string,
+  tokens: StravaTokenResponse,
+): Promise<boolean> {
+  const { data, error } = await admin
     .from("strava_connections")
     .update({
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: new Date(tokens.expires_at * 1000).toISOString(),
     })
-    .eq("user_id", userId);
-  if (updateError) throw updateError;
-  return tokens.access_token;
+    .eq("user_id", userId)
+    .eq("refresh_token", oldRefreshToken)
+    .select("user_id");
+  if (error) throw error;
+  return data.length > 0;
+}
+
+/**
+ * A usable access token for the player, refreshing it if needed. Returns null
+ * if they aren't connected or Strava rejects their refresh token. It never
+ * deletes the connection: only a confirmed deauthorization does that.
+ */
+export async function getValidAccessToken(
+  admin: AdminClient,
+  config: StravaConfig,
+  userId: string,
+): Promise<StravaAccess | null> {
+  const { data: row, error } = await admin
+    .from("strava_connections")
+    .select("athlete_id, access_token, refresh_token, expires_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+
+  const expiresInS = (new Date(row.expires_at).getTime() - Date.now()) / 1000;
+  if (expiresInS > REFRESH_MARGIN_S) return { accessToken: row.access_token, athleteId: row.athlete_id };
+
+  let tokens: StravaTokenResponse | null = null;
+  try {
+    tokens = await refreshTokens(config, row.refresh_token);
+  } catch (e) {
+    if (!isRejectedRefresh(e)) throw e;
+  }
+
+  if (tokens && (await saveRefreshedTokens(admin, userId, row.refresh_token, tokens))) {
+    return { accessToken: tokens.access_token, athleteId: row.athlete_id };
+  }
+
+  // Our refresh failed or lost a race: use whatever a parallel request stored.
+  const again = await admin
+    .from("strava_connections")
+    .select("access_token, refresh_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (again.error) throw again.error;
+  if (again.data && again.data.refresh_token !== row.refresh_token) {
+    return { accessToken: again.data.access_token, athleteId: row.athlete_id };
+  }
+  return null;
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** How long to wait before trusting that a rejected refresh token means "revoked". */
+const REVOKE_CONFIRM_DELAY_MS = 5_000;
+
+/**
+ * Strava said the player revoked access. Webhooks aren't signed, so confirm
+ * it: if their refresh token still works, nothing happened. If it's rejected,
+ * wait, then delete only if no parallel request has rotated the token since
+ * (a rotation would also make ours be rejected).
+ */
+export async function handleDeauthorization(
+  admin: AdminClient,
+  config: StravaConfig,
+  userId: string,
+  { confirmDelayMs = REVOKE_CONFIRM_DELAY_MS } = {},
+): Promise<"kept" | "deleted"> {
+  const { data: row, error } = await admin
+    .from("strava_connections")
+    .select("refresh_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) return "kept";
+
+  try {
+    const tokens = await refreshTokens(config, row.refresh_token);
+    await saveRefreshedTokens(admin, userId, row.refresh_token, tokens);
+    return "kept";
+  } catch (e) {
+    if (!isRejectedRefresh(e)) throw e;
+  }
+
+  await sleep(confirmDelayMs);
+  const { data: deleted, error: deleteError } = await admin
+    .from("strava_connections")
+    .delete()
+    .eq("user_id", userId)
+    .eq("refresh_token", row.refresh_token)
+    .select("user_id");
+  if (deleteError) throw deleteError;
+  return deleted.length > 0 ? "deleted" : "kept";
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +196,7 @@ export async function getValidAccessToken(
 export type ImportOutcome =
   | { status: "imported"; rewards: Rewards }
   | { status: "duplicate" }
-  | { status: "skipped"; reason: SkipReason | "overlap" | "claimed" | "daily_limit" };
+  | { status: "skipped"; reason: SkipReason | "overlap" | "claimed" | "daily_limit" | "not_owner" };
 
 interface ImportRpcResult {
   status: "imported" | "duplicate" | "overlap" | "claimed";
@@ -140,9 +207,14 @@ interface ImportRpcResult {
 
 export async function importActivity(
   admin: AdminClient,
-  userId: string,
+  access: { userId: string; athleteId: number },
   raw: StravaActivity,
 ): Promise<ImportOutcome> {
+  const { userId } = access;
+  // Only the linked athlete's own activities. A token can sometimes read other
+  // people's public activities, and a forged webhook could name one.
+  if (raw.athlete?.id !== access.athleteId) return { status: "skipped", reason: "not_owner" };
+
   const mapped = mapStravaActivity(raw);
   if (!mapped.ok) return { status: "skipped", reason: mapped.reason };
   const a = mapped.activity;
@@ -176,6 +248,22 @@ export async function importActivity(
   }
 }
 
+/**
+ * Starts a manual sync if the last one was at least `cooldownMs` ago. One
+ * UPDATE, so two clicks at the same moment can't both get through.
+ */
+export async function claimSyncSlot(admin: AdminClient, userId: string, cooldownMs: number): Promise<boolean> {
+  const cutoff = new Date(Date.now() - cooldownMs).toISOString();
+  const { data, error } = await admin
+    .from("strava_connections")
+    .update({ last_synced_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .or(`last_synced_at.is.null,last_synced_at.lt.${cutoff}`)
+    .select("user_id");
+  if (error) throw error;
+  return data.length > 0;
+}
+
 export interface SyncSummary {
   imported: number;
   skipped: number;
@@ -188,17 +276,17 @@ export async function syncRecentActivities(
   config: StravaConfig,
   userId: string,
 ): Promise<SyncSummary | null> {
-  const token = await getValidAccessToken(admin, config, userId);
-  if (!token) return null;
+  const access = await getValidAccessToken(admin, config, userId);
+  if (!access) return null;
 
   const since = Math.floor(Date.now() / 1000) - LOOKBACK_S;
-  const activities = await listActivitiesSince(token, since);
+  const activities = await listActivitiesSince(access.accessToken, since);
   // Oldest first, so a daily limit cuts off the newest rather than random ones.
   activities.sort((x, y) => x.start_date.localeCompare(y.start_date));
 
   const summary: SyncSummary = { imported: 0, skipped: 0, rewards: { gold: 0, materials: 0, xp: 0 } };
   for (const activity of activities) {
-    const outcome = await importActivity(admin, userId, activity);
+    const outcome = await importActivity(admin, { userId, athleteId: access.athleteId }, activity);
     if (outcome.status === "imported") {
       summary.imported += 1;
       summary.rewards.gold += outcome.rewards.gold;
@@ -247,10 +335,9 @@ export function isWebhookEvent(body: unknown): body is StravaWebhookEvent {
  * Handles one webhook event. Webhooks aren't signed, so an event is only a
  * hint: we act on what Strava's API says with the player's own token.
  *
- * - New activity: import it.
+ * - New activity: import it, if Strava confirms it belongs to the athlete.
  * - Activity edited or deleted: ignored. Rewards already paid are kept.
- * - Player revoked access on Strava: confirmed by trying to refresh their
- *   token, then their connection is deleted.
+ * - Player revoked access on Strava: confirmed first (handleDeauthorization).
  */
 export async function handleWebhookEvent(
   admin: AdminClient,
@@ -270,19 +357,28 @@ export async function handleWebhookEvent(
   if (!connection) return;
 
   if (isDeauthorization) {
-    await getValidAccessToken(admin, config, connection.user_id, { forceRefresh: true });
+    await handleDeauthorization(admin, config, connection.user_id);
     return;
   }
 
-  const token = await getValidAccessToken(admin, config, connection.user_id);
-  if (!token) return;
+  // Already imported (e.g. a retried event): no need to ask Strava again.
+  const existing = await admin
+    .from("workouts")
+    .select("id")
+    .eq("strava_activity_id", event.object_id)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+  if (existing.data) return;
+
+  const access = await getValidAccessToken(admin, config, connection.user_id);
+  if (!access) return;
 
   let activity: StravaActivity;
   try {
-    activity = await getActivity(token, event.object_id);
+    activity = await getActivity(access.accessToken, event.object_id);
   } catch (e) {
-    if (e instanceof StravaApiError && e.status === 404) return; // deleted already
+    if (e instanceof StravaApiError && (e.status === 404 || e.status === 403)) return;
     throw e;
   }
-  await importActivity(admin, connection.user_id, activity);
+  await importActivity(admin, { userId: connection.user_id, athleteId: access.athleteId }, activity);
 }

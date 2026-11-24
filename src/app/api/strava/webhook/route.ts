@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
   const config = stravaConfig();
   const body: unknown = await request.json().catch(() => null);
   if (!config || !isWebhookEvent(body)) return NextResponse.json({ ok: true });
+  // Not a secret (it's in every event), but filters out casual forgeries.
+  if (config.webhookSubscriptionId !== undefined && body.subscription_id !== config.webhookSubscriptionId) {
+    return NextResponse.json({ ok: true });
+  }
 
   after(async () => {
     try {

@@ -6,7 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { asActionResult, toGameError } from "@/lib/supabase/errors";
 import { revokeToken } from "@/lib/strava/api";
 import { stravaConfig } from "@/lib/strava/config";
-import { deleteConnection, getValidAccessToken, syncRecentActivities } from "@/lib/strava/sync";
+import {
+  claimSyncSlot,
+  deleteConnection,
+  getValidAccessToken,
+  syncRecentActivities,
+} from "@/lib/strava/sync";
 import {
   GameError,
   type ActionResult,
@@ -47,13 +52,15 @@ export async function syncStrava(): Promise<ActionResult<StravaSyncResult>> {
     const { supabase, userId, connection } = await currentConnection();
     if (!connection) throw new GameError("NOT_FOUND", "Connect Strava first.");
 
-    const last = connection.last_synced_at ? new Date(connection.last_synced_at).getTime() : 0;
-    if (Date.now() - last < SYNC_COOLDOWN_MS) {
+    const admin = createAdminClient();
+    if (!(await claimSyncSlot(admin, userId, SYNC_COOLDOWN_MS))) {
       throw new GameError("RATE_LIMITED", "Synced a moment ago. Try again in a minute.");
     }
 
-    const summary = await syncRecentActivities(createAdminClient(), config, userId);
-    if (!summary) throw new GameError("NOT_FOUND", "Strava access was removed. Connect again.");
+    const summary = await syncRecentActivities(admin, config, userId);
+    if (!summary) {
+      throw new GameError("FORBIDDEN", "Strava didn't accept the connection. Disconnect and connect again.");
+    }
 
     return { ...summary, player: await loadPlayer(supabase, userId) };
   });
@@ -70,8 +77,8 @@ export async function disconnectStrava(): Promise<ActionResult<null>> {
     const admin = createAdminClient();
     // Best effort: tell Strava to drop our access too. Forget it locally either way.
     try {
-      const token = await getValidAccessToken(admin, config, userId);
-      if (token) await revokeToken(config, token);
+      const access = await getValidAccessToken(admin, config, userId);
+      if (access) await revokeToken(config, access.accessToken);
     } catch (e) {
       console.error("Strava revoke failed", e);
     }

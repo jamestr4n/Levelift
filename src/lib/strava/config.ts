@@ -6,6 +6,8 @@ export interface StravaConfig {
   clientSecret: string;
   /** Random string we chose when creating the webhook subscription. */
   webhookVerifyToken: string | undefined;
+  /** Strava's id for our subscription. When set, events for any other id are ignored. */
+  webhookSubscriptionId: number | undefined;
 }
 
 /** Null when Strava isn't set up (the UI then hides "Connect Strava"). */
@@ -13,7 +15,13 @@ export function stravaConfig(): StravaConfig | null {
   const clientId = process.env.STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
   if (!clientId || !clientSecret || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
-  return { clientId, clientSecret, webhookVerifyToken: process.env.STRAVA_WEBHOOK_VERIFY_TOKEN };
+  const subscriptionId = Number(process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID);
+  return {
+    clientId,
+    clientSecret,
+    webhookVerifyToken: process.env.STRAVA_WEBHOOK_VERIFY_TOKEN,
+    webhookSubscriptionId: Number.isSafeInteger(subscriptionId) && subscriptionId > 0 ? subscriptionId : undefined,
+  };
 }
 
 /**

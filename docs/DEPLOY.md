@@ -108,6 +108,7 @@ Lets players connect Strava so runs, walks, rides and weight training are import
 | `STRAVA_CLIENT_ID` | from the Strava app |
 | `STRAVA_CLIENT_SECRET` | from the Strava app |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | any random string, e.g. `openssl rand -hex 16` |
+| `STRAVA_WEBHOOK_SUBSCRIPTION_ID` | the `id` from the subscription step below. Add it afterwards and redeploy |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret / service_role** key |
 
 The service-role key is used only by server code in `src/lib/strava` (through `src/lib/supabase/admin.ts`), for webhooks and for the token table that players can't read. Don't add it to Preview: preview URLs can't use Strava anyway, because they're not the callback domain. Redeploy after adding the variables.
@@ -126,6 +127,13 @@ curl -G https://www.strava.com/api/v3/push_subscriptions \
   -d client_id=$STRAVA_CLIENT_ID -d client_secret=$STRAVA_CLIENT_SECRET
 ```
 
+Then set `STRAVA_WEBHOOK_SUBSCRIPTION_ID` to that `id` in Vercel and redeploy. Events for any other id are then ignored.
+
+**Webhook security:** Strava doesn't sign webhook events, so the endpoint treats every event as a hint, never as proof.
+- An activity is imported only if Strava's API, called with the player's own token, says it belongs to that player's athlete.
+- A "revoked" event deletes the connection only after Strava rejects the player's refresh token, and only if the token hasn't changed a few seconds later.
+- The main remaining risk is someone spamming fake events to use up our Strava request quota. If that happens, add a per-athlete throttle.
+
 ### Local development
 
 Put the same four variables in `.env.local`. For the service-role key, use the **local** one from `npx supabase status -o env`. Connect works on `http://localhost:3000`. Strava can't reach localhost with webhooks, so use **Sync now** (or reconnect) to import.
@@ -138,6 +146,7 @@ Put the same four variables in `.env.local`. For the service-role key, use the *
 - An activity that overlaps a workout the player already has is skipped, so a run logged by hand and also recorded on Strava pays once. (The reverse isn't blocked yet: logging by hand a run that was already imported still pays.)
 - Edited or deleted Strava activities don't change rewards already paid.
 - Disconnecting, or revoking access on Strava, deletes the stored tokens. Imported workouts stay.
+- If Strava stops accepting a player's token for any other reason, the connection stays and **Sync now** asks them to disconnect and connect again.
 
 ### Smoke test
 
