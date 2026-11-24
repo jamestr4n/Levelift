@@ -61,7 +61,13 @@ export interface Workout {
   sets?: number;
   rewards: Rewards;
   createdAt: string;
+  /** Where the workout came from. Absent means "manual". */
+  source?: WorkoutSource;
+  /** Set when source is "strava": link to https://www.strava.com/activities/<id>. */
+  stravaActivityId?: number;
 }
+
+export type WorkoutSource = "manual" | "strava";
 
 export interface Rewards {
   gold: number;
@@ -165,6 +171,45 @@ export interface LeaderboardEntry {
   isCurrentUser: boolean;
 }
 
+// ---------- Strava ----------
+
+/**
+ * To connect, send the player to this path with a normal link (full page
+ * navigation, not fetch). After Strava, they come back to
+ * /workouts?strava=<StravaConnectOutcome>, plus &imported=<n> on "connected".
+ */
+export const STRAVA_CONNECT_PATH = "/api/strava/connect";
+
+export type StravaConnectOutcome =
+  | "connected"
+  | "denied" // the player clicked Cancel on Strava
+  | "missing_scope" // the player unticked "View data about your activities"
+  | "already_linked" // this Strava account is linked to another Levelift player
+  | "unavailable" // Strava isn't set up on this server
+  | "error";
+
+export type StravaStatus =
+  /** Strava isn't set up on this server: hide the Connect button. */
+  | { available: false }
+  | { available: true; connected: false }
+  | {
+      available: true;
+      connected: true;
+      athleteName: string;
+      connectedAt: string;
+      lastSyncedAt: string | null;
+    };
+
+export interface StravaSyncResult {
+  /** Activities turned into workouts by this sync. */
+  imported: number;
+  /** New activities that weren't imported (unsupported sport, too old, overlaps a logged workout, daily limit). */
+  skipped: number;
+  /** Total rewards from the imported activities. */
+  rewards: Rewards;
+  player: PlayerProfile;
+}
+
 // ---------- Errors ----------
 
 export type GameErrorCode =
@@ -265,4 +310,14 @@ export interface GameService {
   ): Promise<ActionResult<{ status: "accepted" | "declined" }>>;
   /** Unfriend someone, or cancel/decline a pending request with them (by user id). */
   removeFriend(userId: string): Promise<ActionResult<null>>;
+
+  getStravaStatus(): Promise<StravaStatus>;
+  /**
+   * Import the player's Strava activities from the last 7 days. New ones are
+   * also imported automatically (webhook), so this is a manual refresh.
+   * Each activity pays at most once. RATE_LIMITED if run again within a minute.
+   */
+  syncStrava(): Promise<ActionResult<StravaSyncResult>>;
+  /** Unlink Strava. Workouts already imported, and their rewards, are kept. */
+  disconnectStrava(): Promise<ActionResult<null>>;
 }

@@ -61,3 +61,12 @@ export async function respondToFriendRequest(requestId: string, accept: boolean)
 export async function removeFriend(userId: string) {
   return mockStore.removeFriend(userId);
 }
+export async function getStravaStatus() {
+  return mockStore.getStravaStatus();
+}
+export async function syncStrava() {
+  return mockStore.syncStrava();
+}
+export async function disconnectStrava() {
+  return mockStore.disconnectStrava();
+}

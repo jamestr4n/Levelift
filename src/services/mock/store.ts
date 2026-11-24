@@ -402,4 +402,16 @@ export const mockStore: GameService = {
     if (r >= 0) friendRequests.splice(r, 1);
     return { ok: true, data: null };
   },
+
+  // Strava (stub added with the backend PR; frontend may extend it). Reported
+  // as unavailable in mock mode, so the UI hides the Connect button.
+  async getStravaStatus() {
+    return { available: false };
+  },
+  async syncStrava() {
+    return { ok: false, code: "NOT_IMPLEMENTED", message: "Strava isn't available in mock mode." };
+  },
+  async disconnectStrava() {
+    return { ok: true, data: null };
+  },
 };
