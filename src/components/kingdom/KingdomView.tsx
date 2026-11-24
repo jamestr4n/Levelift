@@ -50,7 +50,17 @@ function plotLabel({ x, y }: PlotPosition) {
   return `plot ${x + 1}, ${y + 1}`;
 }
 
-export function KingdomView({ kingdom, player }: { kingdom: KingdomState; player: PlayerProfile }) {
+export function KingdomView({
+  kingdom,
+  player,
+  ownerName,
+}: {
+  kingdom: KingdomState;
+  /** The signed-in player (their wallet is shown only on their own kingdom). */
+  player: PlayerProfile;
+  /** Set when visiting a friend's kingdom. */
+  ownerName?: string;
+}) {
   const router = useRouter();
   const toast = useToast();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -109,7 +119,7 @@ export function KingdomView({ kingdom, player }: { kingdom: KingdomState; player
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
       <div
         role="img"
-        aria-label={`Your island kingdom with ${kingdom.buildings.length} building${kingdom.buildings.length === 1 ? "" : "s"}. Drag to rotate, tap a plot to select it. You can also use the plot map.`}
+        aria-label={`${ownerName ? `${ownerName}'s` : "Your"} island kingdom with ${kingdom.buildings.length} building${kingdom.buildings.length === 1 ? "" : "s"}. Drag to rotate, tap a plot to select it. You can also use the plot map.`}
         className="relative h-[50dvh] min-h-80 touch-none overflow-hidden rounded-2xl border border-ink-700 bg-ink-900/60 lg:h-[calc(100dvh-12rem)] lg:max-h-[40rem]"
       >
         <div
