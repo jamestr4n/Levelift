@@ -285,6 +285,9 @@ export const mockStore: GameService = {
 
   async purchaseBuilding({ type, position }) {
     await delay();
+    if (type === "town_hall") {
+      throw new GameError("INVALID_INPUT", "Your kingdom already has a Town Hall");
+    }
     const { x, y } = position;
     if (x < 0 || y < 0 || x >= myKingdom.gridWidth || y >= myKingdom.gridHeight) {
       throw new GameError("INVALID_INPUT", "That plot is outside your kingdom");

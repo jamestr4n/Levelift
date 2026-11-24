@@ -1,11 +1,16 @@
-// FRONTEND-OWNED. Placeholder page.
+// FRONTEND-OWNED. The player's own 3D kingdom: buy, place and upgrade buildings.
+import { getCurrentPlayer, getKingdom } from "@/services";
+import { KingdomView } from "@/components/kingdom/KingdomView";
 import { Page } from "@/components/ui/Page";
-import { EmptyState } from "@/components/ui/States";
 
-export default function KingdomPage() {
+export const dynamic = "force-dynamic";
+
+export default async function KingdomPage() {
+  const [kingdom, player] = await Promise.all([getKingdom(), getCurrentPlayer()]);
+
   return (
-    <Page title="Kingdom" subtitle="Spend your rewards to build and upgrade.">
-      <EmptyState title="Coming soon" description="Your island kingdom is being surveyed." />
+    <Page title="Kingdom" subtitle="Spend your workout rewards to build and upgrade.">
+      <KingdomView kingdom={kingdom} player={player} />
     </Page>
   );
 }
