@@ -4,6 +4,65 @@
 >
 > **Project name:** `Levelift` is the working name. The visual reference may say `RepQuest`; do not treat that as a confirmed rebrand. Keep brand text/config easy to change.
 
+## Current status (updated 2026-11-24)
+
+> Keep this section current. Update it in the same PR as any milestone, decision or deploy change.
+
+**Where we are:** the backend for all of V1 is done and live on the hosted Supabase project. The frontend has done the hub, sign-in, workouts and kingdom. **Still to do:** the Friends and Leaderboard screens, a test of the whole game against the real backend, and the Vercel deploy. All 17 PRs are merged and CI is green on `main`.
+
+### V1 definition of done (section 10)
+
+| Requirement | Backend | Frontend | Notes |
+|---|---|---|---|
+| Sign up / sign in, see own hub | ✅ | ✅ (#12, #15) | Email + password, username chosen at sign-up |
+| Log a workout, rewards exactly once | ✅ | ✅ (#14) | Server-side rewards, caps, retry-safe |
+| See Gold, Materials, XP, level, history | ✅ | ✅ (#12, #14) | |
+| Buy / upgrade a building in the 3D kingdom | ✅ | ✅ (#16) | Shop prices are display copies (see decisions) |
+| Add friends, visit their kingdom read-only | ✅ (#10) | ❌ | `/friends` is a placeholder. There's no route yet to open a friend's kingdom: `getKingdom(friendId)` exists and returns `canEdit: false`, and `KingdomView` already handles `canEdit` |
+| Compare weekly growth on a leaderboard | ✅ (#10) | ❌ | `/leaderboard` is a placeholder. `getWeeklyLeaderboard()` is ready |
+| Works on desktop and mobile | n/a | ⚠️ | Responsive layout built, but not yet checked on real phones |
+| Protected from cross-account edits and forged currency | ✅ | n/a | Row-level security, plus permission sweep tests over every table and function |
+
+### Deployment
+
+| Piece | State |
+|---|---|
+| Hosted Supabase project `levellift` (ref `xukrfsedfbhfmupycjcm`, eu-west-1) | ✅ All 5 migrations pushed 2026-11-24. Advisors show only the expected warnings (see `docs/DEPLOY.md`) |
+| Supabase auth settings | ⏳ **Confirm email: OFF** (friends-only beta, no domain), minimum password length 8. Set by hand in the dashboard |
+| Vercel | ⏳ Not set up. The repo owner (frontend dev) imports it. Env vars are in `docs/DEPLOY.md` §4 |
+| Supabase Site URL / Redirect URLs | ⏳ Waiting for the Vercel address |
+| Custom email (SMTP) | ⏸ Postponed: needs a domain we own. Needed before opening beyond close friends |
+| Branch protection on `main` (require CI) | ⏳ Recommended, not yet turned on |
+
+### What's next, in priority order
+
+1. **Frontend:** Friends screen (add by username, incoming/outgoing requests, friends list) and **visiting a friend's kingdom**, e.g. `/kingdom?user=<id>`, reusing `KingdomView` with `canEdit: false`.
+2. **Frontend:** Leaderboard screen.
+3. **Both:** test the whole game against **local Supabase** (`NEXT_PUBLIC_USE_MOCKS=false`) with two accounts, using the checklist in `docs/DEPLOY.md` §5. Until now, the UI has only been built against the mock.
+4. **Frontend (repo owner):** deploy to Vercel. **Backend:** set Site URL and Redirect URLs, then run the smoke test with two real accounts.
+5. **Both:** check on real phones, then invite friends.
+
+### Open decisions (agree, then record below)
+
+- **Real numbers:** reward rates, daily caps, level curve, building prices and scores are all placeholders.
+- **`getBuildingDefinitions()`:** should we add it to the contract? Then the shop reads prices from the database instead of `src/components/kingdom/catalog.ts`, which has a TODO for this. Backend can add it.
+- **Error style:** should `logWorkout`, `purchaseBuilding` and `upgradeBuilding` switch from throwing to `ActionResult` (see section 7)? Today their error codes are lost in production; `errorMessage()` falls back to a generic message.
+- **Domain and custom email:** needed before a wider launch.
+
+### Decisions log
+
+| Date | Decision |
+|---|---|
+| 11-23 | Local Supabase in Docker for backend development. The frontend uses the mock (`NEXT_PUBLIC_USE_MOCKS=true`) and needs no Docker. |
+| 11-23 | Email + password sign-in; a unique username (3–20 chars, `a-z 0-9 _`, stored lowercase) chosen at sign-up; password at least 8 characters. |
+| 11-23 | Rewards are calculated **only** in the database function `log_workout()`. The TypeScript copy in `src/lib/rewards/` is for previews and tests, and a DB test fails if the two differ. Daily caps go by the UTC day a workout is *logged*; workouts can be back-dated at most 7 days; at most 120 rewarded minutes per workout and 20 workouts per day. |
+| 11-23 | The level curve is `100 × level` XP to the next level, max level 50. `xp` is progress within the current level. |
+| 11-23 | Building prices and scores are the frontend mock's numbers. The database (`building_definitions`) is the source of truth. A kingdom has exactly one Town Hall (free, so it can't be bought). Each new kingdom starts with a Town Hall at (2,2) on a 5×5 grid. |
+| 11-23 | Friends need a request **and** an acceptance (privacy). Friends can see each other's kingdom, buildings and character, but never their wallet or workout details. The leaderboard shows only weekly totals. |
+| 11-23 | The weekly leaderboard is you plus your friends, ranked by Kingdom Score **gained** this week, then weekly XP. Weeks start Monday 00:00 UTC. The starting Town Hall doesn't count. |
+| 11-23 | Reading functions throw `GameError`. **New** actions that can fail visibly return `ActionResult` (sign-in functions, and friend requests since #10). |
+| 11-24 | Friends-only beta runs with **Confirm email off** (no domain yet). The confirmation route and template are ready for when it's turned on. |
+
 ## 1. Product vision
 
 Build a **social fitness kingdom-building game** in which real-world workouts produce in-game resources. Players use those resources to level up a 3D character and develop a personal kingdom, then compare progress with friends.
@@ -156,7 +215,7 @@ Levelift/
 │   │   ├── auth.ts  player.ts  workouts.ts  kingdom.ts  friends.ts   (server actions)
 │   │   ├── mappers.ts                                            DB rows → contract types
 │   │   ├── session.ts                                            server-only helpers (requireUser, loadPlayer)
-│   │   └── mock/                                       FRONTEND  dev-only mock data
+│   │   └── mock/                                       FRONTEND  dev-only fake backend (store.ts state, actions.ts server actions)
 │   └── lib/
 │       ├── supabase/                                   BACKEND   client.ts, server.ts, middleware.ts (session refresh)
 │       ├── auth/                                       BACKEND   sign-up validation, auth error messages
@@ -191,19 +250,38 @@ Levelift/
 
 The frontend must access game data through typed, stable service functions rather than embedding reward or purchasing logic into UI components.
 
-The function names and types live in `src/types/game.ts` (`GameService`). Current interface:
+The function names and types live in `src/types/game.ts` (`GameService`); that file is the source of truth. Import everything from `@/services`. Current interface, with how each one reports errors:
 
 ```ts
+// Auth: return AuthResult { ok, needsEmailConfirmation } | { ok: false, code, message }
+signUp(input: SignUpInput): Promise<AuthResult>;
+signIn(input: SignInInput): Promise<AuthResult>;
+signOut(): Promise<void>;
+isUsernameAvailable(username: string): Promise<boolean>;
+
+// Reads: throw GameError (NOT_AUTHENTICATED, NOT_FOUND, …)
 getCurrentPlayer(): Promise<PlayerProfile>;
 getCharacter(): Promise<CharacterState>;
-logWorkout(input: WorkoutInput): Promise<WorkoutRewardResult>;
-getWorkoutHistory(): Promise<Workout[]>;
-getKingdom(userId?: string): Promise<KingdomState>;
-purchaseBuilding(input: PurchaseBuildingInput): Promise<PurchaseResult>;
-upgradeBuilding(buildingId: string): Promise<UpgradeResult>;
+getWorkoutHistory(): Promise<Workout[]>;                 // newest first, max 100
+getKingdom(userId?: string): Promise<KingdomState>;      // a friend's id gives canEdit: false; non-friends get NOT_FOUND
 getFriends(): Promise<FriendProfile[]>;
-getWeeklyLeaderboard(): Promise<LeaderboardEntry[]>;
+getFriendRequests(): Promise<FriendRequest[]>;           // incoming + outgoing pending
+getWeeklyLeaderboard(): Promise<LeaderboardEntry[]>;     // me + friends, ranked
+
+// Game actions: throw GameError (see the open decision about switching to ActionResult)
+logWorkout(input: WorkoutInput): Promise<WorkoutRewardResult>;          // INVALID_INPUT, RATE_LIMITED
+purchaseBuilding(input: PurchaseBuildingInput): Promise<PurchaseResult>; // INSUFFICIENT_FUNDS, PLOT_OCCUPIED, INVALID_INPUT
+upgradeBuilding(buildingId: string): Promise<UpgradeResult>;            // INSUFFICIENT_FUNDS, MAX_LEVEL, NOT_FOUND
+
+// Friend actions: return ActionResult<T> = { ok: true, data } | { ok: false, code, message }
+sendFriendRequest(username: string): Promise<ActionResult<{ status: "pending" | "accepted" }>>;
+respondToFriendRequest(requestId: string, accept: boolean): Promise<ActionResult<{ status: "accepted" | "declined" }>>;
+removeFriend(userId: string): Promise<ActionResult<null>>;               // also cancels a pending request
 ```
+
+**Errors:** in production, Next.js strips the code and message from errors *thrown* by server actions, so thrown errors reach the UI as a generic failure. `ActionResult` and `AuthResult` keep `code` and a player-safe `message`. Prefer them for any new action whose failure the player needs to understand.
+
+**Workouts:** create `clientRequestId` with `crypto.randomUUID()` **once per submission** and reuse it on retry; a retry returns the original result and doesn't pay again. Disable action buttons (especially *Upgrade*) while a request is pending.
 
 **Contract rules:**
 
@@ -215,11 +293,9 @@ getWeeklyLeaderboard(): Promise<LeaderboardEntry[]>;
 - Design the frontend against mock responses when backend functions are not yet ready; swap in the real implementation without rewriting UI components.
 - Never silently modify agreed contracts. Discuss breaking changes and update both sides together.
 
-### Suggested initial entities
+### Database (implemented)
 
-`profiles`, `characters`, `workouts`, `wallets`, `resource_transactions`, `kingdoms`, `building_definitions`, `owned_buildings`, `friendships`.
-
-The backend owner can simplify these tables as appropriate; document the final schema. Weekly rankings can be derived from persistent, auditable score-change / building events rather than blindly trusting client totals.
+Tables: `profiles`, `characters`, `wallets`, `kingdoms`, `building_definitions`, `owned_buildings`, `workouts`, `resource_transactions` (audit log of every Gold, Materials and XP change), `friendships`, and `kingdom_score_events` (feeds the weekly leaderboard). Every change to game state goes through a database function: `log_workout`, `purchase_building`, `upgrade_building`, `send_friend_request`, `respond_to_friend_request` and `remove_friend`. Players can't write tables directly. The full definitions are in `supabase/migrations/`.
 
 ## 8. Collaboration and Git rules
 
@@ -246,13 +322,15 @@ The backend owner can simplify these tables as appropriate; document the final s
 
 ## 9. Delivery plan (4–6 week target, adjust to actual progress)
 
+✅ done · ⏳ in progress / to do. Details are in **Current status** at the top.
+
 | Period | Developer A: Frontend / 3D | Developer B: Backend / Systems | Joint milestone |
 | --- | --- | --- | --- |
-| Week 1 | Character hub layout, placeholder 3D avatar, navigation | Supabase setup, auth, schema, initial RLS | Two accounts can sign in; dashboard loads |
-| Week 2 | Workout entry / history / reward feedback UI | Workout CRUD and trusted resource / XP awards | Log a workout and see persistent rewards |
-| Week 3 | Small kingdom scene, building placement visuals | Purchases, upgrades, placements, transactions | Spend workout Gold to place a building |
-| Week 4 | Friend profile / kingdom visit / leaderboard screens | Friends logic, read-only visits, weekly rankings | Two users can visit and compare kingdoms |
-| Weeks 5–6 | Visual polish, responsive UX, accessibility | Permission checks, tests, data / performance fixes | Invite friends to a usable public beta |
+| Week 1 | ✅ Character hub layout, placeholder 3D avatar, navigation | ✅ Supabase setup, auth, schema, initial RLS | Two accounts can sign in; dashboard loads |
+| Week 2 | ✅ Workout entry / history / reward feedback UI | ✅ Workout CRUD and trusted resource / XP awards | Log a workout and see persistent rewards |
+| Week 3 | ✅ Small kingdom scene, building placement visuals | ✅ Purchases, upgrades, placements, transactions | Spend workout Gold to place a building |
+| Week 4 | ⏳ Friend profile / kingdom visit / leaderboard screens | ✅ Friends logic, read-only visits, weekly rankings | Two users can visit and compare kingdoms |
+| Weeks 5–6 | ⏳ Visual polish, responsive UX, accessibility | ✅ Permission checks, tests, data / performance fixes; hosted DB pushed | Invite friends to a usable public beta |
 
 **Development order:** prioritise a vertical slice over completing one entire system in isolation.
 
