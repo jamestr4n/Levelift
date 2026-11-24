@@ -8,7 +8,7 @@
 
 > Keep this section current. Update it in the same PR as any milestone, decision or deploy change.
 
-**Where we are:** the backend for all of V1 is done and live on the hosted Supabase project. The frontend has done the hub, sign-in, workouts and kingdom. **Still to do:** the Friends and Leaderboard screens, a test of the whole game against the real backend, and the Vercel deploy. All 17 PRs are merged and CI is green on `main`.
+**Where we are:** the backend for all of V1 is done and live on the hosted Supabase project. The frontend has done the hub, sign-in, workouts and kingdom. **Still to do:** the Friends and Leaderboard screens, and a test of the whole game against the real backend. The site is deployed on Vercel at https://levelift.vercel.app. All 17 PRs are merged and CI is green on `main`.
 
 ### V1 definition of done (section 10)
 
@@ -28,9 +28,9 @@
 | Piece | State |
 |---|---|
 | Hosted Supabase project `levellift` (ref `xukrfsedfbhfmupycjcm`, eu-west-1) | ✅ All 5 migrations pushed 2026-11-24. Advisors show only the expected warnings (see `docs/DEPLOY.md`) |
-| Supabase auth settings | ⏳ **Confirm email: OFF** (friends-only beta, no domain), minimum password length 8. Set by hand in the dashboard |
-| Vercel | ⏳ Not set up. The repo owner (frontend dev) imports it. Env vars are in `docs/DEPLOY.md` §4 |
-| Supabase Site URL / Redirect URLs | ⏳ Waiting for the Vercel address |
+| Supabase auth settings | ✅ **Confirm email: OFF** confirmed 11-24: new sign-ups on the live site go straight to the hub. Minimum password length 8. Set by hand in the dashboard |
+| Vercel | ✅ Live at **https://levelift.vercel.app** (project `levelift`, team LL). Deploys `main` to production; every PR gets a preview. The 3 env vars from `docs/DEPLOY.md` §4 are set for Production and Preview |
+| Supabase Site URL / Redirect URLs | ⏳ Backend to set both to `https://levelift.vercel.app` (`docs/DEPLOY.md` §3) |
 | Custom email (SMTP) | ⏸ Postponed: needs a domain we own. Needed before opening beyond close friends |
 | Branch protection on `main` (require CI) | ⏳ Recommended, not yet turned on |
 
@@ -39,7 +39,7 @@
 1. **Frontend:** Friends screen (add by username, incoming/outgoing requests, friends list) and **visiting a friend's kingdom**, e.g. `/kingdom?user=<id>`, reusing `KingdomView` with `canEdit: false`.
 2. **Frontend:** Leaderboard screen.
 3. **Both:** test the whole game against **local Supabase** (`NEXT_PUBLIC_USE_MOCKS=false`) with two accounts, using the checklist in `docs/DEPLOY.md` §5. Until now, the UI has only been built against the mock.
-4. **Frontend (repo owner):** deploy to Vercel. **Backend:** set Site URL and Redirect URLs, then run the smoke test with two real accounts.
+4. ~~**Frontend (repo owner):** deploy to Vercel.~~ ✅ 11-24. **Backend:** set Site URL and Redirect URLs. Smoke test (11-24): sign-up, workout rewards (paid once on double-click), buying a House and phone layout pass on the live site; the friends and leaderboard steps wait for those screens to reach `main`.
 5. **Both:** check on real phones, then invite friends.
 
 ### Open decisions (agree, then record below)
