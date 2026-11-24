@@ -19,13 +19,16 @@ How to put Levelift online with a hosted Supabase database and Vercel. Do it onc
 From the repository root, on an up-to-date `main`:
 
 ```bash
-npx supabase login                         # opens the browser
-npx supabase link --project-ref <ref>      # asks for the database password
-npm run db:push                            # applies every migration in supabase/migrations/
-npx supabase db advisors --remote          # security + performance check; should report no WARN
+npx supabase login                          # opens the browser
+npx supabase link --project-ref <ref>
+npx supabase db push --remote --dry-run     # shows which migrations would be applied
+npm run db:push                             # applies them (supabase db push --remote)
+npx supabase db advisors --remote --level info
 ```
 
-`db:push` lists the migrations before applying them. Check that the list is what you expect.
+Always pass `--remote`. Without it, this Supabase CLI version targets your **local** database.
+
+**Expected advisor warnings:** `authenticated_security_definer_function_executable` (and one `anon_…` for `is_username_available`). These functions are the game's API on purpose: each checks who is calling and validates input, and players can't write tables directly (`tests/db/permissions.test.ts`). Any **other** WARN needs a look. `unused_index` notes are normal on a new database.
 
 ## 3. Configure sign-in (Supabase dashboard)
 
@@ -35,11 +38,20 @@ The local settings in `supabase/config.toml` **don't** apply to the hosted proje
 |---|---|
 | **URL Configuration** | **Site URL:** your Vercel address, e.g. `https://levelift.vercel.app` (fill in after section 4) |
 | | **Redirect URLs:** `https://levelift.vercel.app/**` and `http://localhost:3000/**` |
-| **Sign In / Providers → Email** | **Confirm email:** on. **Minimum password length:** 8 |
-| **Emails → Templates → Confirm signup** | **Subject:** `Confirm your Levelift account`. **Body:** paste the contents of `supabase/templates/confirmation.html` |
-| **Emails → SMTP Settings** | **Required for a public beta.** Supabase's built-in email sender only sends to your own team and allows very few emails per hour. Set up a custom SMTP provider (for example Resend, Postmark or Amazon SES) so friends get their confirmation emails. |
+| **Sign In / Providers → Email** | **Minimum password length:** 8. **Confirm email:** see below |
 
-The confirmation link goes to `/auth/confirm` on your site, which signs the player in and opens the app.
+### Email confirmation: pick one
+
+**A. Friends-only beta, no domain (current setup).** Turn **Confirm email** off. No emails are sent and players can play straight after signing up. Email addresses aren't checked, which is fine for an invite-only group.
+
+**B. Wider launch.** You need a domain you own (about £8–12 a year). Then:
+
+1. Set up an email provider such as Resend: add and verify your domain (DNS records at your domain registrar), then create an API key.
+2. **Emails → SMTP Settings:** turn on custom SMTP. Host `smtp.resend.com`, port `465`, username `resend`, password = the API key, sender `noreply@<your-domain>`, name `Levelift`.
+3. **Emails → Templates → Confirm signup** (locked until custom SMTP is set): subject `Confirm your Levelift account`, body = contents of `supabase/templates/confirmation.html`.
+4. Turn **Confirm email** on.
+
+The confirmation link goes to `/auth/confirm` on your site, which signs the player in and opens the app. Supabase's built-in sender only emails members of your Supabase organisation, so it can't be used for real players.
 
 ## 4. Deploy on Vercel
 
@@ -74,7 +86,7 @@ Use two different email addresses, for example one each.
 ## 6. Shipping database changes later
 
 1. Merge the pull request with the new migration (CI must be green).
-2. From an up-to-date `main`: `npm run db:push`.
-3. Run `npx supabase db advisors --remote` again.
+2. From an up-to-date `main`: `npx supabase db push --remote --dry-run`, check the list, then `npm run db:push`.
+3. Run `npx supabase db advisors --remote --level info` again (see the expected warnings in section 2).
 
 Push the migration **before or together with** the app change that needs it. Never edit a migration that has already been pushed; add a new one.
