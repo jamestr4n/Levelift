@@ -325,7 +325,10 @@ export const mockStore: GameService = {
 
   async getFriends() {
     await delay();
-    return copy(friends);
+    // Keep each friend's score in step with their mock kingdom.
+    return copy(
+      friends.map((f) => (friendKingdoms[f.id] ? { ...f, kingdomScore: scoreOf(friendKingdoms[f.id]) } : f)),
+    );
   },
 
   async getWeeklyLeaderboard() {
