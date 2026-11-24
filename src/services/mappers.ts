@@ -12,6 +12,7 @@ import type {
   OwnedBuilding,
   PlayerProfile,
   Workout,
+  WorkoutSource,
   WorkoutType,
 } from "@/types/game";
 import { xpToNextLevel } from "@/lib/rewards/levels";
@@ -57,6 +58,8 @@ export function toWorkout(row: Tables<"workouts">): Workout {
       xp: row.xp_awarded,
     },
     createdAt: row.created_at,
+    source: row.source as WorkoutSource,
+    ...(row.strava_activity_id !== null && { stravaActivityId: row.strava_activity_id }),
   };
 }
 
