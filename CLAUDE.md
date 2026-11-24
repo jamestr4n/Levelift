@@ -4,11 +4,11 @@
 >
 > **Project name:** `Levelift` is the working name. The visual reference may say `RepQuest`; do not treat that as a confirmed rebrand. Keep brand text/config easy to change.
 
-## Current status (updated 2026-11-24)
+## Current status (updated 2026-11-24, evening)
 
 > Keep this section current. Update it in the same PR as any milestone, decision or deploy change.
 
-**Where we are:** the backend for all of V1 is done and live on the hosted Supabase project. The frontend has done the hub, sign-in, workouts and kingdom. **Still to do:** the Friends and Leaderboard screens, a test of the whole game against the real backend, and the Vercel deploy. All 17 PRs are merged and CI is green on `main`.
+**Where we are:** every V1 feature is built, backend and frontend, and the beta is **live at https://levelift.vercel.app** on the hosted Supabase project. The smoke test passed for sign-up, workouts, buying, and the phone layout. **Still to do:** a live test of friends and the leaderboard with two accounts, cleaning up the test accounts, then inviting friends. All 19 PRs are merged and CI is green on `main`.
 
 ### V1 definition of done (section 10)
 
@@ -18,9 +18,9 @@
 | Log a workout, rewards exactly once | ✅ | ✅ (#14) | Server-side rewards, caps, retry-safe |
 | See Gold, Materials, XP, level, history | ✅ | ✅ (#12, #14) | |
 | Buy / upgrade a building in the 3D kingdom | ✅ | ✅ (#16) | Shop prices are display copies (see decisions) |
-| Add friends, visit their kingdom read-only | ✅ (#10) | ❌ | `/friends` is a placeholder. There's no route yet to open a friend's kingdom: `getKingdom(friendId)` exists and returns `canEdit: false`, and `KingdomView` already handles `canEdit` |
-| Compare weekly growth on a leaderboard | ✅ (#10) | ❌ | `/leaderboard` is a placeholder. `getWeeklyLeaderboard()` is ready |
-| Works on desktop and mobile | n/a | ⚠️ | Responsive layout built, but not yet checked on real phones |
+| Add friends, visit their kingdom read-only | ✅ (#10) | ✅ (#19) | Friends screen: add by username, requests, list. Friend kingdoms open read-only. ⏳ Not yet tested live |
+| Compare weekly growth on a leaderboard | ✅ (#10) | ✅ (#19) | ⏳ Not yet tested live |
+| Works on desktop and mobile | n/a | ✅ | Phone layout passed in the live smoke test (11-24) |
 | Protected from cross-account edits and forged currency | ✅ | n/a | Row-level security, plus permission sweep tests over every table and function |
 
 ### Deployment
@@ -28,19 +28,21 @@
 | Piece | State |
 |---|---|
 | Hosted Supabase project `levellift` (ref `xukrfsedfbhfmupycjcm`, eu-west-1) | ✅ All 5 migrations pushed 2026-11-24. Advisors show only the expected warnings (see `docs/DEPLOY.md`) |
-| Supabase auth settings | ⏳ **Confirm email: OFF** (friends-only beta, no domain), minimum password length 8. Set by hand in the dashboard |
-| Vercel | ⏳ Not set up. The repo owner (frontend dev) imports it. Env vars are in `docs/DEPLOY.md` §4 |
-| Supabase Site URL / Redirect URLs | ⏳ Waiting for the Vercel address |
+| Supabase auth settings | ✅ **Confirm email: OFF** (friends-only beta, no domain), minimum password length 8. Set by hand in the dashboard |
+| Vercel | ✅ Live at **https://levelift.vercel.app**. Deploys `main` automatically; every PR gets a preview link. Owned by the frontend dev |
+| Supabase Site URL / Redirect URLs | ✅ Site URL `https://levelift.vercel.app`; Redirect URLs `https://levelift.vercel.app/**` and `http://localhost:3000/**` |
 | Custom email (SMTP) | ⏸ Postponed: needs a domain we own. Needed before opening beyond close friends |
-| Branch protection on `main` (require CI) | ⏳ Recommended, not yet turned on |
+| Live smoke test (`docs/DEPLOY.md` §5) | ✅ Sign-up, workout rewards (paid once, even on a double-click), buying a House, phone layout. ⏳ Friends and leaderboard still to test |
+| Test accounts | ⏳ Delete `smoke_a_xpmer` and `smoke_b_xpmer` (example.com) in Auth → Users after the friends/leaderboard test |
+| Branch protection on `main` (require CI) | ⏳ Recommended; not confirmed as on. The repo owner turns it on under Settings → Branches |
 
 ### What's next, in priority order
 
-1. **Frontend:** Friends screen (add by username, incoming/outgoing requests, friends list) and **visiting a friend's kingdom**, e.g. `/kingdom?user=<id>`, reusing `KingdomView` with `canEdit: false`.
-2. **Frontend:** Leaderboard screen.
-3. **Both:** test the whole game against **local Supabase** (`NEXT_PUBLIC_USE_MOCKS=false`) with two accounts, using the checklist in `docs/DEPLOY.md` §5. Until now, the UI has only been built against the mock.
-4. **Frontend (repo owner):** deploy to Vercel. **Backend:** set Site URL and Redirect URLs, then run the smoke test with two real accounts.
-5. **Both:** check on real phones, then invite friends.
+1. **Both:** on the live site, finish the smoke test with two accounts: send, accept and decline friend requests; visit each other's kingdom (no buy or upgrade possible); check the leaderboard shows both; remove the friend.
+2. **Backend:** delete the smoke-test accounts in Supabase → Auth → Users.
+3. **Frontend (repo owner):** turn on branch protection for `main`, requiring the `app` and `database` checks.
+4. **Both:** invite a few friends. Collect feedback and bugs in GitHub issues.
+5. **Both:** settle the open decisions below, starting with the real numbers.
 
 ### Open decisions (agree, then record below)
 
@@ -62,6 +64,7 @@
 | 11-23 | The weekly leaderboard is you plus your friends, ranked by Kingdom Score **gained** this week, then weekly XP. Weeks start Monday 00:00 UTC. The starting Town Hall doesn't count. |
 | 11-23 | Reading functions throw `GameError`. **New** actions that can fail visibly return `ActionResult` (sign-in functions, and friend requests since #10). |
 | 11-24 | Friends-only beta runs with **Confirm email off** (no domain yet). The confirmation route and template are ready for when it's turned on. |
+| 11-24 | Hosting: Vercel (`levelift.vercel.app`) deploys `main`; the hosted Supabase project is `levellift`. Database changes reach production only through `npm run db:push` after the PR is merged (`docs/DEPLOY.md` §6). |
 
 ## 1. Product vision
 
@@ -329,8 +332,8 @@ Tables: `profiles`, `characters`, `wallets`, `kingdoms`, `building_definitions`,
 | Week 1 | ✅ Character hub layout, placeholder 3D avatar, navigation | ✅ Supabase setup, auth, schema, initial RLS | Two accounts can sign in; dashboard loads |
 | Week 2 | ✅ Workout entry / history / reward feedback UI | ✅ Workout CRUD and trusted resource / XP awards | Log a workout and see persistent rewards |
 | Week 3 | ✅ Small kingdom scene, building placement visuals | ✅ Purchases, upgrades, placements, transactions | Spend workout Gold to place a building |
-| Week 4 | ⏳ Friend profile / kingdom visit / leaderboard screens | ✅ Friends logic, read-only visits, weekly rankings | Two users can visit and compare kingdoms |
-| Weeks 5–6 | ⏳ Visual polish, responsive UX, accessibility | ✅ Permission checks, tests, data / performance fixes; hosted DB pushed | Invite friends to a usable public beta |
+| Week 4 | ✅ Friend profile / kingdom visit / leaderboard screens | ✅ Friends logic, read-only visits, weekly rankings | Two users can visit and compare kingdoms |
+| Weeks 5–6 | ⏳ Visual polish, responsive UX, accessibility (phone layout ✅) | ✅ Permission checks, tests, data / performance fixes; hosted DB pushed | ✅ Beta live at levelift.vercel.app; ⏳ invite friends |
 
 **Development order:** prioritise a vertical slice over completing one entire system in isolation.
 
