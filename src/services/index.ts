@@ -13,8 +13,9 @@ import * as player from "./player";
 import * as workouts from "./workouts";
 import * as kingdom from "./kingdom";
 import * as friends from "./friends";
+import * as strava from "./strava";
 
-const realService: GameService = { ...auth, ...player, ...workouts, ...kingdom, ...friends };
+const realService: GameService = { ...auth, ...player, ...workouts, ...kingdom, ...friends, ...strava };
 
 const useMocks = process.env.NEXT_PUBLIC_USE_MOCKS === "true";
 
@@ -44,4 +45,7 @@ export const {
   getFriendRequests,
   respondToFriendRequest,
   removeFriend,
+  getStravaStatus,
+  syncStrava,
+  disconnectStrava,
 } = service;

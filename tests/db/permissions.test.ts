@@ -8,8 +8,11 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { anonClient, dbTestsEnabled, newPlayer } from "./helpers";
 
-/** Every table, and who can read it. Nobody can write any table directly. */
-const TABLES: Record<string, "public" | "signed-in" | "own-rows"> = {
+/**
+ * Every table, and who can read it. Nobody can write any table directly.
+ * server-only: no player can read it either; only the server (service role).
+ */
+const TABLES: Record<string, "public" | "signed-in" | "own-rows" | "server-only"> = {
   building_definitions: "public",
   profiles: "signed-in",
   characters: "own-rows",
@@ -20,10 +23,11 @@ const TABLES: Record<string, "public" | "signed-in" | "own-rows"> = {
   resource_transactions: "own-rows",
   friendships: "own-rows",
   kingdom_score_events: "own-rows",
+  strava_connections: "server-only",
 };
 
-/** Every database function, and who can call it. */
-const FUNCTIONS: Record<string, "anyone" | "signed-in"> = {
+/** Every database function, and who can call it. server-only: only the service role. */
+const FUNCTIONS: Record<string, "anyone" | "signed-in" | "server-only"> = {
   is_username_available: "anyone",
   is_friend: "signed-in",
   log_workout: "signed-in",
@@ -35,6 +39,8 @@ const FUNCTIONS: Record<string, "anyone" | "signed-in"> = {
   get_friends: "signed-in",
   get_friend_requests: "signed-in",
   get_weekly_leaderboard: "signed-in",
+  get_strava_connection: "signed-in",
+  import_strava_activity: "server-only",
 };
 
 const NO_ROW = "00000000-0000-0000-0000-000000000000";
@@ -117,6 +123,17 @@ describe.skipIf(!dbTestsEnabled)("permission sweep", () => {
       if (FUNCTIONS[fn] === "anyone") continue;
       expect(error, fn).not.toBeNull();
       expect(error!.code, fn).toBe("42501"); // permission denied
+    }
+  });
+
+  it("signed-in players can't read server-only tables or call server-only functions", async () => {
+    for (const table of found.tables.filter((t) => TABLES[t] === "server-only")) {
+      const { error } = await player.client.from(table as never).select("*").limit(1);
+      expect(error?.code, table).toBe("42501"); // permission denied
+    }
+    for (const fn of found.functions.filter((f) => FUNCTIONS[f] === "server-only")) {
+      const { error } = await player.client.rpc(fn as never, found.args[fn] as never);
+      expect(error?.code, fn).toBe("42501"); // permission denied
     }
   });
 

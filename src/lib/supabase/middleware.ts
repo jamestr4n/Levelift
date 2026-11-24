@@ -4,8 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
-/** Pages a signed-out visitor may open. */
-const PUBLIC_PATHS = ["/login", "/auth"];
+/** Pages a signed-out visitor may open. The Strava webhook is called by Strava, not a player. */
+const PUBLIC_PATHS = ["/login", "/auth", "/api/strava/webhook"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

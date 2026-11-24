@@ -50,6 +50,7 @@
 - **`getBuildingDefinitions()`:** should we add it to the contract? Then the shop reads prices from the database instead of `src/components/kingdom/catalog.ts`, which has a TODO for this. Backend can add it.
 - **Error style:** should `logWorkout`, `purchaseBuilding` and `upgradeBuilding` switch from throwing to `ActionResult` (see section 7)? Today their error codes are lost in production; `errorMessage()` falls back to a generic message.
 - **Domain and custom email:** needed before a wider launch.
+- **Strava import (proposed by backend, 11-24, branch `feat/strava-import`):** section 3 lists Strava as out of scope for V1, so this needs both developers' agreement. The backend is built and tested. It also changes the contract (`getStravaStatus`, `syncStrava`, `disconnectStrava`, `Workout.source`) and puts the service-role key in Vercel Production (server-only). If agreed, frontend adds a Connect / Sync / Disconnect panel on Workouts and a Strava badge in history. Setup: `docs/DEPLOY.md` §7.
 
 ### Decisions log
 
@@ -207,6 +208,7 @@ Levelift/
 │   ├── middleware.ts                                   BACKEND   session refresh + redirect to /login (off in mock mode)
 │   ├── app/                                            FRONTEND  pages and routes
 │   │   ├── auth/confirm/route.ts                       BACKEND   email confirmation link handler
+│   │   ├── api/strava/                                 BACKEND   Strava connect, OAuth callback, webhook (route handlers)
 │   │   ├── page.tsx                                              character hub
 │   │   ├── login/  workouts/  kingdom/  friends/  leaderboard/
 │   ├── components/                                     FRONTEND
@@ -220,7 +222,8 @@ Levelift/
 │   │   ├── session.ts                                            server-only helpers (requireUser, loadPlayer)
 │   │   └── mock/                                       FRONTEND  dev-only fake backend (store.ts state, actions.ts server actions)
 │   └── lib/
-│       ├── supabase/                                   BACKEND   client.ts, server.ts, middleware.ts (session refresh)
+│       ├── supabase/                                   BACKEND   client.ts, server.ts, middleware.ts (session refresh), admin.ts (service role, server-only, Strava only)
+│       ├── strava/                                     BACKEND   Strava API client, activity mapping, import/sync (server-only)
 │       ├── auth/                                       BACKEND   sign-up validation, auth error messages
 │       ├── workouts/                                   BACKEND   workout input rules (safe to use in forms)
 │       └── rewards/                                    BACKEND   TS mirror of reward + level rules (preview/tests; DB decides)
@@ -280,6 +283,11 @@ upgradeBuilding(buildingId: string): Promise<UpgradeResult>;            // INSUF
 sendFriendRequest(username: string): Promise<ActionResult<{ status: "pending" | "accepted" }>>;
 respondToFriendRequest(requestId: string, accept: boolean): Promise<ActionResult<{ status: "accepted" | "declined" }>>;
 removeFriend(userId: string): Promise<ActionResult<null>>;               // also cancels a pending request
+
+// Strava (proposed, see open decisions). Connect = link to STRAVA_CONNECT_PATH; returns to /workouts?strava=<outcome>
+getStravaStatus(): Promise<StravaStatus>;                                 // { available: false } hides the Connect button
+syncStrava(): Promise<ActionResult<StravaSyncResult>>;                    // RATE_LIMITED within a minute of the last sync
+disconnectStrava(): Promise<ActionResult<null>>;
 ```
 
 **Errors:** in production, Next.js strips the code and message from errors *thrown* by server actions, so thrown errors reach the UI as a generic failure. `ActionResult` and `AuthResult` keep `code` and a player-safe `message`. Prefer them for any new action whose failure the player needs to understand.
@@ -298,7 +306,7 @@ removeFriend(userId: string): Promise<ActionResult<null>>;               // also
 
 ### Database (implemented)
 
-Tables: `profiles`, `characters`, `wallets`, `kingdoms`, `building_definitions`, `owned_buildings`, `workouts`, `resource_transactions` (audit log of every Gold, Materials and XP change), `friendships`, and `kingdom_score_events` (feeds the weekly leaderboard). Every change to game state goes through a database function: `log_workout`, `purchase_building`, `upgrade_building`, `send_friend_request`, `respond_to_friend_request` and `remove_friend`. Players can't write tables directly. The full definitions are in `supabase/migrations/`.
+Tables: `profiles`, `characters`, `wallets`, `kingdoms`, `building_definitions`, `owned_buildings`, `workouts`, `resource_transactions` (audit log of every Gold, Materials and XP change), `friendships`, `kingdom_score_events` (feeds the weekly leaderboard) and `strava_connections` (OAuth tokens; server-only, no player can read it). Every change to game state goes through a database function: `log_workout`, `purchase_building`, `upgrade_building`, `send_friend_request`, `respond_to_friend_request`, `remove_friend` and `import_strava_activity` (service role only). `log_workout` and `import_strava_activity` share the reward rules in `private.record_workout`. Players can't write tables directly. The full definitions are in `supabase/migrations/`.
 
 ## 8. Collaboration and Git rules
 

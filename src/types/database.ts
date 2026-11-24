@@ -201,6 +201,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"strava_connections": {
+                  Row: {
+                    "access_token": string,"athlete_id": number,"athlete_name": string,"connected_at": string,"expires_at": string,"last_synced_at": string | null,"refresh_token": string,"scope": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "access_token": string,"athlete_id": number,"athlete_name"?: string,"connected_at"?: string,"expires_at": string,"last_synced_at"?: string | null,"refresh_token": string,"scope": string,"user_id": string
+                  }
+                  Update: {
+                    "access_token"?: string,"athlete_id"?: number,"athlete_name"?: string,"connected_at"?: string,"expires_at"?: string,"last_synced_at"?: string | null,"refresh_token"?: string,"scope"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "strava_connections_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"wallets": {
                   Row: {
                     "gold": number,"materials": number,"user_id": string
@@ -223,14 +243,14 @@ isOneToOne: true
                   ]
                 },"workouts": {
                   Row: {
-                    "client_request_id": string,"created_at": string,"distance_km": number | null,"duration_minutes": number,"gold_awarded": number,"id": string,"materials_awarded": number,"reward_capped": boolean,"sets": number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded": number
+                    "client_request_id": string,"created_at": string,"distance_km": number | null,"duration_minutes": number,"gold_awarded": number,"id": string,"materials_awarded": number,"reward_capped": boolean,"sets": number | null,"source": string,"started_at": string,"strava_activity_id": number | null,"type": string,"user_id": string,"xp_awarded": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_request_id": string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes": number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"started_at": string,"type": string,"user_id": string,"xp_awarded"?: number
+                    "client_request_id": string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes": number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"source"?: string,"started_at": string,"strava_activity_id"?: number | null,"type": string,"user_id": string,"xp_awarded"?: number
                   }
                   Update: {
-                    "client_request_id"?: string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes"?: number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"started_at"?: string,"type"?: string,"user_id"?: string,"xp_awarded"?: number
+                    "client_request_id"?: string,"created_at"?: string,"distance_km"?: number | null,"duration_minutes"?: number,"gold_awarded"?: number,"id"?: string,"materials_awarded"?: number,"reward_capped"?: boolean,"sets"?: number | null,"source"?: string,"started_at"?: string,"strava_activity_id"?: number | null,"type"?: string,"user_id"?: string,"xp_awarded"?: number
                   }
                   Relationships: [
                     {
@@ -257,10 +277,18 @@ isOneToOne: false
               "display_name": string,"id": string,"kingdom_score": number,"level": number,"username": string
             }[]
                            },
+"get_strava_connection":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "athlete_id": number,"athlete_name": string,"connected_at": string,"last_synced_at": string
+            }[]
+                           },
 "get_weekly_leaderboard":
 { Args: Record<PropertyKey, never>; Returns: {
               "display_name": string,"is_current_user": boolean,"rank": number,"user_id": string,"weekly_kingdom_score": number,"weekly_xp": number
             }[]
+                           },
+"import_strava_activity":
+{ Args: { "p_distance_km"?: number,"p_duration_minutes": number,"p_started_at": string,"p_strava_activity_id": number,"p_type": string,"p_user_id": string }; Returns: Json
                            },
 "is_friend":
 { Args: { "p_other": string }; Returns: boolean

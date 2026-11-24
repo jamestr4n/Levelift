@@ -28,7 +28,7 @@ npx supabase db advisors --remote --level info
 
 Always pass `--remote`. Without it, this Supabase CLI version targets your **local** database.
 
-**Expected advisor warnings:** `authenticated_security_definer_function_executable` (and one `anon_…` for `is_username_available`). These functions are the game's API on purpose: each checks who is calling and validates input, and players can't write tables directly (`tests/db/permissions.test.ts`). Any **other** WARN needs a look. `unused_index` notes are normal on a new database.
+**Expected advisor warnings:** `authenticated_security_definer_function_executable` (and one `anon_…` for `is_username_available`). These functions are the game's API on purpose: each checks who is calling and validates input, and players can't write tables directly (`tests/db/permissions.test.ts`). Any **other** WARN needs a look. `unused_index` notes are normal on a new database. The INFO note `rls_enabled_no_policy` on `strava_connections` is intended: only the server may touch that table.
 
 ## 3. Configure sign-in (Supabase dashboard)
 
@@ -64,7 +64,7 @@ The confirmation link goes to `/auth/confirm` on your site, which signs the play
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys → the **anon / publishable** key |
    | `NEXT_PUBLIC_USE_MOCKS` | `false` |
 
-   **Never add the `service_role` / secret key to Vercel.** The app doesn't need it, and it bypasses every security rule. If mocks are left on, the production build fails on purpose.
+   The `service_role` / secret key bypasses every security rule. Add it **only** when setting up Strava (section 7), and then **only for Production**, never Preview. If mocks are left on, the production build fails on purpose.
 3. Click **Deploy**. When it finishes, copy the site address into the Supabase **Site URL** and **Redirect URLs** (section 3).
 
 From then on, every merge to `main` redeploys automatically, and every pull request gets a preview link.
@@ -90,3 +90,68 @@ Use two different email addresses, for example one each.
 3. Run `npx supabase db advisors --remote --level info` again (see the expected warnings in section 2).
 
 Push the migration **before or together with** the app change that needs it. Never edit a migration that has already been pushed; add a new one.
+
+## 7. Strava (optional)
+
+Lets players connect Strava so runs, walks, rides and weight training are imported automatically. Without these settings the app works as before and hides the Connect button.
+
+### Create the Strava app (once)
+
+1. Go to [strava.com/settings/api](https://www.strava.com/settings/api) and create an app. Use `https://levelift.vercel.app` as the **Website** and set **Authorization Callback Domain** to `levelift.vercel.app`. Strava always allows `localhost` too.
+2. Note the **Client ID** and **Client Secret**.
+3. **Athlete capacity:** a new app can be connected by **1** athlete (you). In the same settings page you can raise it to **10**. Beyond 10, Strava has to review the app (screenshots of the Connect button and where Strava data appears). There's no guarantee they'll approve it, so check before a wider launch.
+
+### Vercel environment variables (Production only)
+
+| Name | Value |
+|---|---|
+| `STRAVA_CLIENT_ID` | from the Strava app |
+| `STRAVA_CLIENT_SECRET` | from the Strava app |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | any random string, e.g. `openssl rand -hex 16` |
+| `STRAVA_WEBHOOK_SUBSCRIPTION_ID` | the `id` from the subscription step below. Add it afterwards and redeploy |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret / service_role** key |
+
+The service-role key is used only by server code in `src/lib/strava` (through `src/lib/supabase/admin.ts`), for webhooks and for the token table that players can't read. Don't add it to Preview: preview URLs can't use Strava anyway, because they're not the callback domain. Redeploy after adding the variables.
+
+### Create the webhook subscription (once, after the deploy)
+
+Strava allows one subscription per app. It calls our URL once to check the verify token, so the deploy with the variables above must be live first.
+
+```bash
+curl -X POST https://www.strava.com/api/v3/push_subscriptions \
+  -F client_id=$STRAVA_CLIENT_ID -F client_secret=$STRAVA_CLIENT_SECRET \
+  -F callback_url=https://levelift.vercel.app/api/strava/webhook \
+  -F verify_token=$STRAVA_WEBHOOK_VERIFY_TOKEN
+# -> {"id": 123}. To check later:
+curl -G https://www.strava.com/api/v3/push_subscriptions \
+  -d client_id=$STRAVA_CLIENT_ID -d client_secret=$STRAVA_CLIENT_SECRET
+```
+
+Then set `STRAVA_WEBHOOK_SUBSCRIPTION_ID` to that `id` in Vercel and redeploy. Events for any other id are then ignored.
+
+**Webhook security:** Strava doesn't sign webhook events, so the endpoint treats every event as a hint, never as proof.
+- An activity is imported only if Strava's API, called with the player's own token, says it belongs to that player's athlete.
+- A "revoked" event deletes the connection only after Strava rejects the player's refresh token, and only if the token hasn't changed a few seconds later.
+- The main remaining risk is someone spamming fake events to use up our Strava request quota. If that happens, add a per-athlete throttle.
+
+### Local development
+
+Put the same four variables in `.env.local`. For the service-role key, use the **local** one from `npx supabase status -o env`. Connect works on `http://localhost:3000`. Strava can't reach localhost with webhooks, so use **Sync now** (or reconnect) to import.
+
+### How it behaves
+
+- When a player connects, their last 7 days are imported. After that, each new activity is imported by the webhook a few seconds after it's saved on Strava. **Sync now** imports the last 7 days again (at most once a minute).
+- Imported workouts use the same rules as logged ones (rates, daily caps, the 7-day limit, 20 workouts a day). Each activity pays once, to one account.
+- Run, Trail Run, Virtual Run → running. Walk, Hike → walking. Ride, Mountain Bike, Gravel, Virtual Ride → cycling. Weight Training, Crossfit → strength. Other sports, including e-bike rides, are skipped.
+- An activity that overlaps a workout the player already has is skipped, so a run logged by hand and also recorded on Strava pays once. (The reverse isn't blocked yet: logging by hand a run that was already imported still pays.)
+- Edited or deleted Strava activities don't change rewards already paid.
+- Disconnecting, or revoking access on Strava, deletes the stored tokens. Imported workouts stay.
+- If Strava stops accepting a player's token for any other reason, the connection stays and **Sync now** asks them to disconnect and connect again.
+
+### Smoke test
+
+- [ ] Connect Strava: you return to Workouts and recent activities appear as Strava workouts.
+- [ ] Record or add a short activity on Strava: it appears within a minute without pressing anything.
+- [ ] Sync now: nothing is paid twice.
+- [ ] Disconnect: the button changes back to Connect, and the app is gone from Strava → Settings → My Apps.
+
